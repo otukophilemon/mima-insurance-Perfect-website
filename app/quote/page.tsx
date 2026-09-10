@@ -1,7 +1,7 @@
 // app/quote/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -20,7 +20,7 @@ import { SERVICES } from '@/data/services';
 
 const STEPS = ['Insurance Type', 'Your Details', 'Review & Submit'];
 
-export default function QuotePage() {
+function QuotePageContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -501,5 +501,20 @@ export default function QuotePage() {
 
       <Footer />
     </div>
+  );
+}
+
+
+export default function QuotePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <p className="text-gray-500">Loading quote form...</p>
+        </div>
+      }
+    >
+      <QuotePageContent />
+    </Suspense>
   );
 }
