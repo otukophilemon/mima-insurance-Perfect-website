@@ -26,24 +26,31 @@ export default function Services() {
           {SERVICES.map((service) => {
             const Icon = service.icon;
             return (
-              <Link
+                            <Link
                 key={service.id}
                 href={`/services/${service.slug}`}
-                className="group relative bg-white rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 hover:border-transparent"
+                className="group relative bg-white rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 hover:border-transparent flex flex-col"
               >
-                {/* Gradient top bar */}
-                <div
-                  className={`h-1 w-full bg-gradient-to-r ${service.gradient}`}
-                />
-
-                <div className="p-6">
-                  {/* Icon Container */}
+                {/* Service Image */}
+                <div className="relative h-40 overflow-hidden bg-gray-100">
+                  <img
+                    src={service.image}
+                    alt={service.title}
+                    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-110"
+                  />
+                  {/* Gradient overlay */}
                   <div
-                    className={`w-14 h-14 rounded-xl bg-gradient-to-br ${service.gradient} flex items-center justify-center mb-4 transform transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 shadow-lg`}
+                    className={`absolute inset-0 bg-gradient-to-t ${service.gradient} opacity-30 group-hover:opacity-10 transition-opacity`}
+                  />
+                  {/* Icon badge */}
+                  <div
+                    className={`absolute bottom-3 left-3 w-12 h-12 rounded-xl bg-gradient-to-br ${service.gradient} flex items-center justify-center shadow-lg transform transition-transform duration-300 group-hover:scale-110`}
                   >
-                    <Icon className="text-white" size={26} />
+                    <Icon className="text-white" size={22} />
                   </div>
+                </div>
 
+                <div className="p-6 flex-1 flex flex-col">
                   {/* Title */}
                   <h3 className="text-base font-bold text-gray-900 mb-2 group-hover:text-[#dc2626] transition-colors leading-tight">
                     {service.title}
@@ -54,8 +61,8 @@ export default function Services() {
                     {service.shortDescription}
                   </p>
 
-                  {/* Learn More */}
-                  <div className="flex items-center text-[#dc2626] font-semibold text-sm">
+                                   {/* Learn More */}
+                  <div className="flex items-center text-[#dc2626] font-semibold text-sm mt-auto pt-2">
                     Learn More
                     <ArrowRight
                       size={14}

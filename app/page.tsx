@@ -10,9 +10,15 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#2563eb] text-white">
-        <div className="max-w-7xl mx-auto px-6 py-24 text-center">
+            {/* Hero Section */}
+      <section
+        className="relative text-white bg-cover bg-center"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, rgba(30, 58, 138, 0.92), rgba(30, 64, 175, 0.75)), url(/images/hero-bg.jpg)',
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-6 py-32 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Your Trusted <span className="text-yellow-400">Insurance Partner</span>
           </h1>

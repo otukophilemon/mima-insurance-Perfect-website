@@ -15,10 +15,12 @@ const QUICK_LINKS = [
 
 const SERVICE_LINKS = [
   { href: '/services/motor-insurance', label: 'Motor Insurance' },
-  { href: '/services/fire-and-perils', label: 'Fire & Perils' },
   { href: '/services/medical-insurance', label: 'Medical Insurance' },
-  { href: '/services/group-life-personal-accident', label: 'Group Life' },
-  { href: '/services/business-interruption', label: 'Business Interruption' },
+  { href: '/services/fire-and-perils', label: 'Fire & Perils' },
+  { href: '/services/burglary-insurance', label: 'Burglary Insurance' },
+  { href: '/services/marine-insurance', label: 'Marine Insurance' },
+  { href: '/services/travel-insurance', label: 'Travel Insurance' },
+  { href: '/services/money-insurance', label: 'Money Insurance' },
   { href: '/services/work-injury-benefits', label: 'WIBA' },
 ];
 

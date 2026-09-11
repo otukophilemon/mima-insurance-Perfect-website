@@ -33,9 +33,17 @@ export default async function ServiceDetailPage({ params }: PageProps) {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* Hero */}
-      <section className={`bg-gradient-to-br ${service.gradient} text-white`}>
-        <div className="max-w-7xl mx-auto px-6 py-20">
+            {/* Hero */}
+      <section className={`relative bg-gradient-to-br ${service.gradient} text-white overflow-hidden`}>
+        {/* Background image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-25"
+          style={{ backgroundImage: `url(${service.image})` }}
+        />
+        {/* Gradient overlay */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${service.gradient} opacity-80`} />
+
+        <div className="relative max-w-7xl mx-auto px-6 py-20">
           <nav className="text-sm mb-6 text-white/80">
             <Link href="/" className="hover:text-white">Home</Link>
             <span className="mx-2">/</span>

@@ -93,7 +93,14 @@ export default function AboutPage() {
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
+                        <div>
+              <div className="rounded-2xl overflow-hidden mb-6 shadow-lg">
+                <img
+                  src="/images/about-team.jpg"
+                  alt="MIMA Insurance Brokers Team"
+                  className="w-full h-64 object-cover"
+                />
+              </div>
               <span className="text-[#dc2626] font-semibold text-sm uppercase tracking-wide">
                 Our Story
               </span>
@@ -246,6 +253,15 @@ export default function AboutPage() {
                     {office.city} Office
                   </h3>
                 </div>
+                                {office.city === 'Nairobi' && (
+                  <div className="rounded-xl overflow-hidden mb-4">
+                    <img
+                      src="/images/office-nairobi.jpg"
+                      alt="Nairobi Office"
+                      className="w-full h-40 object-cover"
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
