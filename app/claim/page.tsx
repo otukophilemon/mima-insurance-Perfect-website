@@ -27,8 +27,10 @@ import { COMPANY } from '@/data/company';
 const STEPS = ['Claim Type', 'Incident Details', 'Your Details', 'Review'];
 
 export default function ClaimPage() {
-  const [step, setStep] = useState(0);
+    const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [formData, setFormData] = useState({
     claimType: '',
@@ -61,15 +63,39 @@ export default function ClaimPage() {
     if (step > 0) setStep(step - 1);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Wire up to backend (Supabase) in Step 2
-    console.log('Claim submitted:', formData);
-    // Generate tracking number
-    const trackNum = `MIMA-${Date.now().toString().slice(-8)}`;
-    setTrackingNumber(trackNum);
-    setSubmitted(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const { submitClaim } = await import('@/lib/submissions');
+      const trackNum = `MIMA-${Date.now().toString().slice(-8)}`;
+
+      await submitClaim({
+        tracking_number: trackNum,
+        claim_type: formData.claimType,
+        incident_date: formData.incidentDate,
+        incident_description: formData.incidentDescription,
+        estimated_value: formData.estimatedValue,
+        full_name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        policy_number: formData.policyNumber,
+        additional_notes: formData.additionalNotes || undefined,
+      });
+
+      setTrackingNumber(trackNum);
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Claim submission failed:', error);
+      setSubmitError(
+        'Something went wrong. Please try again or call us at 0116 000 073.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isStepValid = () => {
@@ -542,8 +568,15 @@ export default function ClaimPage() {
                     </div>
                   )}
 
-                  {/* Navigation Buttons */}
-                  <div className="flex gap-3 pt-8 mt-8 border-t border-gray-100">
+                               {/* Error Message */}
+              {submitError && (
+                <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex gap-3 pt-8 mt-8 border-t border-gray-100">
                     {step > 0 && (
                       <button
                         type="button"
@@ -563,13 +596,16 @@ export default function ClaimPage() {
                         Continue <ArrowRight size={18} />
                       </button>
                     ) : (
-                      <button
-                        type="submit"
-                        className="ml-auto inline-flex items-center gap-2 px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full transition-all shadow-lg"
-                      >
-                        Submit Claim <CheckCircle size={18} />
-                      </button>
+                                        <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="ml-auto inline-flex items-center gap-2 px-8 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-wait text-white font-semibold rounded-full transition-all shadow-lg"
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Claim'}
+                    {!isSubmitting && <CheckCircle size={18} />}
+                  </button>
                     )}
+
                   </div>
                 </form>
               </div>

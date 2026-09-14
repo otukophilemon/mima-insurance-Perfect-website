@@ -24,6 +24,8 @@ function QuotePageContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [formData, setFormData] = useState({
     insuranceType: '',
     fullName: '',
@@ -62,12 +64,34 @@ function QuotePageContent() {
     if (step > 0) setStep(step - 1);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Wire up to backend (Supabase) later
-    console.log('Quote submitted:', formData);
-    setSubmitted(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const { submitQuote } = await import('@/lib/submissions');
+
+      await submitQuote({
+        insurance_type: formData.insuranceType,
+        full_name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        location: formData.location,
+        age: formData.age || undefined,
+        details: formData.details || undefined,
+      });
+
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Quote submission failed:', error);
+      setSubmitError(
+        'Something went wrong. Please try again or call us at 0116 000 073.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isStepValid = () => {
@@ -465,6 +489,13 @@ function QuotePageContent() {
                 </div>
               )}
 
+                            {/* Error Message */}
+              {submitError && (
+                <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+
               {/* Navigation Buttons */}
               <div className="flex gap-3 pt-8 mt-8 border-t border-gray-100">
                 {step > 0 && (
@@ -486,11 +517,13 @@ function QuotePageContent() {
                     Continue <ArrowRight size={18} />
                   </button>
                 ) : (
-                  <button
+                                    <button
                     type="submit"
-                    className="ml-auto inline-flex items-center gap-2 px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full transition-all shadow-lg"
+                    disabled={isSubmitting}
+                    className="ml-auto inline-flex items-center gap-2 px-8 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-wait text-white font-semibold rounded-full transition-all shadow-lg"
                   >
-                    Submit Quote Request <CheckCircle size={18} />
+                    {isSubmitting ? 'Submitting...' : 'Submit Quote Request'}
+                    {!isSubmitting && <CheckCircle size={18} />}
                   </button>
                 )}
               </div>

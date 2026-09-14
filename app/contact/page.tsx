@@ -28,7 +28,7 @@ const SUBJECTS = [
 ];
 
 export default function ContactPage() {
-  const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
@@ -36,13 +36,35 @@ export default function ContactPage() {
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Wire up to backend (Supabase / API route)
-    console.log('Form submitted:', formData);
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 5000);
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const { submitContact } = await import('@/lib/submissions');
+
+      await submitContact({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || undefined,
+        subject: formData.subject,
+        message: formData.message,
+      });
+
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 5000);
+    } catch (error) {
+      console.error('Contact submission failed:', error);
+      setSubmitError(
+        'Something went wrong. Please try again or call us at 0116 000 073.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -135,7 +157,12 @@ export default function ContactPage() {
                   </p>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
+                                <form onSubmit={handleSubmit} className="space-y-5">
+                  {submitError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                      {submitError}
+                    </div>
+                  )}
                   {/* Name */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -225,12 +252,13 @@ export default function ContactPage() {
                   </div>
 
                   {/* Submit */}
-                  <button
+                                    <button
                     type="submit"
-                    className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold rounded-full transition-all transform hover:scale-[1.02] shadow-lg"
+                    disabled={isSubmitting}
+                    className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#dc2626] hover:bg-[#b91c1c] disabled:bg-gray-400 disabled:cursor-wait text-white font-semibold rounded-full transition-all shadow-lg"
                   >
-                    Send Message
-                    <Send size={18} />
+                    {isSubmitting ? 'Sending...' : 'Send Message'}
+                    {!isSubmitting && <Send size={18} />}
                   </button>
                 </form>
               )}
