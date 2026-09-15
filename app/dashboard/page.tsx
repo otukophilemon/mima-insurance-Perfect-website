@@ -1,242 +1,267 @@
+// app/dashboard/page.tsx
 'use client';
-import { useState } from 'react';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText, AlertCircle, CheckCircle, Clock, Edit2 } from 'lucide-react';
+import {
+  LayoutDashboard,
+  FileText,
+  LogOut,
+  User,
+  Mail,
+  Phone,
+  Shield,
+  Plus,
+  Clock,
+} from 'lucide-react';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import { createClient } from '@/lib/supabase-browser';
 
-interface Policy {
-  id: string;
-  name: string;
-  type: string;
-  status: 'active' | 'expired' | 'pending';
-  startDate: string;
-  endDate: string;
-  premium: number;
-  coverage: string;
-}
-
-interface Claim {
-  id: string;
-  type: string;
-  date: string;
-  amount: number;
-  status: 'pending' | 'approved' | 'rejected' | 'paid';
-  reference: string;
+interface UserProfile {
+  email: string;
+  full_name?: string;
+  phone?: string;
 }
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<'policies' | 'claims'>('policies');
+  const router = useRouter();
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const mockPolicies: Policy[] = [
-    {
-      id: '1',
-      name: 'Auto Insurance - Honda Civic',
-      type: 'Auto',
-      status: 'active',
-      startDate: '2023-01-15',
-      endDate: '2026-01-15',
-      premium: 1200,
-      coverage: 'Comprehensive',
-    },
-    {
-      id: '2',
-      name: 'Home Insurance - 123 Main St',
-      type: 'Home',
-      status: 'active',
-      startDate: '2022-06-01',
-      endDate: '2025-06-01',
-      premium: 1500,
-      coverage: 'Full Coverage',
-    },
-    {
-      id: '3',
-      name: 'Life Insurance',
-      type: 'Life',
-      status: 'active',
-      startDate: '2020-03-20',
-      endDate: '2070-03-20',
-      premium: 50,
-      coverage: '$500,000',
-    },
-  ];
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-  const mockClaims: Claim[] = [
-    {
-      id: '1',
-      type: 'Auto Accident',
-      date: '2024-01-10',
-      amount: 5000,
-      status: 'approved',
-      reference: 'CLM-00001',
-    },
-    {
-      id: '2',
-      type: 'Medical Expense',
-      date: '2024-02-15',
-      amount: 2500,
-      status: 'pending',
-      reference: 'CLM-00002',
-    },
-  ];
+        if (!user) {
+          router.push('/login');
+          return;
+        }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-      case 'approved':
-      case 'paid':
-        return 'bg-green-100 text-green-700';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'expired':
-      case 'rejected':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
+        setUser({
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name,
+          phone: user.user_metadata?.phone,
+        });
+      } catch (error) {
+        console.error('Failed to load user:', error);
+        router.push('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
+  }, [router]);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setLoggingOut(false);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'active':
-      case 'approved':
-      case 'paid':
-        return <CheckCircle size={16} className="inline mr-1" />;
-      case 'pending':
-        return <Clock size={16} className="inline mr-1" />;
-      default:
-        return <AlertCircle size={16} className="inline mr-1" />;
-    }
-  };
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="flex items-center justify-center py-32">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading your dashboard...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const displayName = user.full_name || user.email.split('@')[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+
       {/* Header */}
-      <div className="bg-blue-900 text-white py-8 border-b-4 border-orange-500">
-        <div className="max-w-6xl mx-auto px-4">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 w-fit mb-4">
-            <ArrowLeft size={20} /> Back to Home
-          </Link>
-          <h1 className="text-4xl font-bold">My Policy Dashboard</h1>
-          <p className="text-blue-100 mt-2">Manage your policies and claims in one place</p>
-        </div>
-      </div>
-
-      <div className="max-w-6xl mx-auto px-4 py-12">
-        {/* Welcome Card */}
-        <div className="bg-gradient-to-r from-orange-50 to-orange-100 border-l-4 border-orange-500 p-6 rounded-lg mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Welcome back! 👋</h2>
-          <p className="text-gray-700">You have <strong>3 active policies</strong> and <strong>2 claims</strong> in your account.</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-4 border-b-2 border-gray-200 mb-8">
-          <button
-            onClick={() => setActiveTab('policies')}
-            className={`px-6 py-3 font-semibold border-b-4 transition ${
-              activeTab === 'policies'
-                ? 'border-orange-500 text-orange-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            📋 Policies
-          </button>
-          <button
-            onClick={() => setActiveTab('claims')}
-            className={`px-6 py-3 font-semibold border-b-4 transition ${
-              activeTab === 'claims'
-                ? 'border-orange-500 text-orange-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            📄 Claims
-          </button>
-        </div>
-
-        {/* Policies Tab */}
-        {activeTab === 'policies' && (
-          <div className="space-y-4">
-            {mockPolicies.map(policy => (
-              <div key={policy.id} className="bg-white border-l-4 border-orange-500 rounded-lg p-6 hover:shadow-lg transition">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">{policy.name}</h3>
-                    <p className="text-gray-600 text-sm mt-1">Policy ID: {policy.id}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(policy.status)} flex items-center`}>
-                    {getStatusIcon(policy.status)}
-                    {policy.status.charAt(0).toUpperCase() + policy.status.slice(1)}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <p className="text-gray-600 text-sm">Type</p>
-                    <p className="font-semibold text-gray-900">{policy.type}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">Coverage</p>
-                    <p className="font-semibold text-gray-900">{policy.coverage}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">Annual Premium</p>
-                    <p className="font-semibold text-gray-900">${policy.premium}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">Expires</p>
-                    <p className="font-semibold text-gray-900">{policy.endDate}</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition font-semibold">
-                    <FileText size={18} /> View Details
-                  </button>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition font-semibold">
-                    <Edit2 size={18} /> Edit Policy
-                  </button>
-                </div>
+      <section className="bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#2563eb] text-white">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                <User size={32} />
               </div>
-            ))}
+              <div>
+                <p className="text-blue-100 text-sm">Welcome back,</p>
+                <h1 className="text-3xl font-bold">{displayName}</h1>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 backdrop-blur text-white font-semibold rounded-full transition-all border border-white/20"
+            >
+              <LogOut size={18} />
+              {loggingOut ? 'Logging out...' : 'Log Out'}
+            </button>
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* Claims Tab */}
-        {activeTab === 'claims' && (
-          <div className="space-y-4">
-            {mockClaims.map(claim => (
-              <div key={claim.id} className="bg-white border-l-4 border-red-500 rounded-lg p-6 hover:shadow-lg transition">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">{claim.type}</h3>
-                    <p className="text-gray-600 text-sm mt-1">Reference: {claim.reference}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(claim.status)} flex items-center`}>
-                    {getStatusIcon(claim.status)}
-                    {claim.status.charAt(0).toUpperCase() + claim.status.slice(1)}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <p className="text-gray-600 text-sm">Claim Date</p>
-                    <p className="font-semibold text-gray-900">{claim.date}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">Claim Amount</p>
-                    <p className="font-semibold text-gray-900">${claim.amount}</p>
-                  </div>
-                  <div className="text-right">
-                    <button className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition font-semibold">
-                      View Status
-                    </button>
-                  </div>
-                </div>
+      {/* Main content */}
+      <section className="py-12">
+        <div className="max-w-7xl mx-auto px-6">
+          {/* Quick stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-[#1e3a8a]">
+              <div className="flex items-center justify-between mb-2">
+                <Shield className="text-[#1e3a8a]" size={28} />
+                <span className="text-3xl font-bold text-gray-900">0</span>
               </div>
-            ))}
-            <div className="text-center py-8">
-              <Link href="/claim" className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-semibold">
-                <FileText size={20} /> File a New Claim
-              </Link>
+              <p className="text-gray-600 text-sm">Active Policies</p>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-[#dc2626]">
+              <div className="flex items-center justify-between mb-2">
+                <FileText className="text-[#dc2626]" size={28} />
+                <span className="text-3xl font-bold text-gray-900">0</span>
+              </div>
+              <p className="text-gray-600 text-sm">Active Claims</p>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-green-500">
+              <div className="flex items-center justify-between mb-2">
+                <Clock className="text-green-500" size={28} />
+                <span className="text-3xl font-bold text-gray-900">0</span>
+              </div>
+              <p className="text-gray-600 text-sm">Pending Actions</p>
             </div>
           </div>
-        )}
-      </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Left: Policies */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-2xl shadow-md p-8 mb-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <LayoutDashboard className="text-[#1e3a8a]" size={24} />
+                    My Policies
+                  </h2>
+                  <Link
+                    href="/quote"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-semibold rounded-full transition"
+                  >
+                    <Plus size={16} />
+                    Get a Quote
+                  </Link>
+                </div>
+
+                {/* Empty state */}
+                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
+                  <Shield className="text-gray-300 mx-auto mb-4" size={56} />
+                  <h3 className="text-lg font-bold text-gray-700 mb-2">
+                    No policies yet
+                  </h3>
+                  <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+                    You don&apos;t have any active insurance policies with MIMA yet.
+                    Get started by requesting a free quote.
+                  </p>
+                  <Link
+                    href="/quote"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold rounded-full transition"
+                  >
+                    Get Your First Quote
+                  </Link>
+                </div>
+              </div>
+
+              {/* Claims section */}
+              <div className="bg-white rounded-2xl shadow-md p-8">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2 mb-6">
+                  <FileText className="text-[#dc2626]" size={24} />
+                  My Claims
+                </h2>
+
+                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
+                  <FileText className="text-gray-300 mx-auto mb-4" size={56} />
+                  <h3 className="text-lg font-bold text-gray-700 mb-2">
+                    No claims filed
+                  </h3>
+                  <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+                    You haven&apos;t filed any claims. If you need to file one,
+                    our team is here to help.
+                  </p>
+                  <Link
+                    href="/claim"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold rounded-full transition"
+                  >
+                    File a Claim
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Profile */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <User className="text-[#1e3a8a]" size={20} />
+                  My Profile
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <Mail className="text-gray-400 mt-1 flex-shrink-0" size={16} />
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500">Email</p>
+                      <p className="text-sm text-gray-900 break-all">{user.email}</p>
+                    </div>
+                  </div>
+
+                  {user.full_name && (
+                    <div className="flex items-start gap-3">
+                      <User className="text-gray-400 mt-1 flex-shrink-0" size={16} />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-500">Full Name</p>
+                        <p className="text-sm text-gray-900">{user.full_name}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {user.phone && (
+                    <div className="flex items-start gap-3">
+                      <Phone className="text-gray-400 mt-1 flex-shrink-0" size={16} />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-500">Phone</p>
+                        <p className="text-sm text-gray-900">{user.phone}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-gray-100 mt-6 pt-6">
+                  <Link
+                    href="/contact"
+                    className="block w-full text-center px-4 py-2 border-2 border-gray-200 hover:border-[#1e3a8a] hover:text-[#1e3a8a] text-gray-700 font-semibold rounded-full text-sm transition"
+                  >
+                    Need Help? Contact Us
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
     </div>
   );
 }

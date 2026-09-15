@@ -3,8 +3,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase-browser';
 import Image from 'next/image';
-import { Menu, X, Phone, Mail, MessageCircle } from 'lucide-react';
+import { Menu, X, Phone, Mail, LogIn, LayoutDashboard } from 'lucide-react';
 import { COMPANY } from '@/data/company';
 
 const NAV_LINKS = [
@@ -18,6 +20,34 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
+  const router = useRouter();
+
+  // Check auth state on mount and on auth changes
+  useEffect(() => {
+    const supabase = createClient();
+
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser({
+          email: user.email || '',
+          name: user.user_metadata?.full_name || user.email?.split('@')[0],
+        });
+      } else {
+        setUser(null);
+      }
+    };
+
+    checkUser();
+
+    // Listen for auth changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      checkUser();
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -100,15 +130,25 @@ export default function Navbar() {
 
           {/* CTAs */}
           <div className="flex items-center gap-3">
-            <a
-              href={`https://wa.me/${COMPANY.whatsapp.replace('+', '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border-2 border-[#dc2626] text-[#dc2626] hover:bg-[#dc2626] hover:text-white font-semibold transition-all"
-            >
-              <MessageCircle size={18} />
-              <span>WhatsApp</span>
-            </a>
+                    {/* Auth Button — Desktop */}
+        {user ? (
+          <Link
+            href="/dashboard"
+            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold transition-all"
+          >
+            <LayoutDashboard size={16} />
+            <span className="hidden lg:inline">Dashboard</span>
+          </Link>
+        ) : (
+          <Link
+            href="/login"
+            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border-2 border-[#1e3a8a] text-[#1e3a8a] hover:bg-[#1e3a8a] hover:text-white font-semibold transition-all"
+          >
+            <LogIn size={16} />
+            <span className="hidden lg:inline">Login</span>
+          </Link>
+        )}
+            
             <Link
               href="/quote"
               className="hidden md:inline-flex items-center px-6 py-2.5 rounded-full bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
@@ -146,6 +186,26 @@ export default function Navbar() {
                 </Link>
               ))}
               <div className="border-t border-gray-100 my-2" />
+                          {/* Auth Button — Mobile */}
+            {user ? (
+              <Link
+                href="/dashboard"
+                onClick={() => setIsOpen(false)}
+                className="py-3 px-4 rounded-lg bg-[#1e3a8a] text-white font-semibold flex items-center justify-center gap-2 transition"
+              >
+                <LayoutDashboard size={18} />
+                My Dashboard
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setIsOpen(false)}
+                className="py-3 px-4 rounded-lg border-2 border-[#1e3a8a] text-[#1e3a8a] font-semibold flex items-center justify-center gap-2 transition"
+              >
+                <LogIn size={18} />
+                Login / Register
+              </Link>
+            )}
               <Link
                 href="/quote"
                 onClick={() => setIsOpen(false)}
@@ -153,16 +213,7 @@ export default function Navbar() {
               >
                 Get a Quote
               </Link>
-              <a
-                href={`https://wa.me/${COMPANY.whatsapp.replace('+', '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setIsOpen(false)}
-                className="py-3 px-4 rounded-lg border-2 border-[#dc2626] text-[#dc2626] text-center font-semibold flex items-center justify-center gap-2 transition"
-              >
-                <MessageCircle size={18} />
-                Chat on WhatsApp
-              </a>
+              
             </div>
           </div>
         </div>
