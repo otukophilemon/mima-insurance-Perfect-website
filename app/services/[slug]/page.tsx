@@ -13,11 +13,35 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { SERVICES } from '@/data/services';
 import { COMPANY } from '@/data/company';
+import type { Metadata } from "next";
+
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const service = SERVICES.find((s) => s.slug === slug);
+
+  if (!service) {
+    return { title: "Service Not Found" };
+  }
+
+  return {
+    title: `${service.title} | MIMA Insurance Brokers Kenya`,
+    description: service.description,
+    openGraph: {
+      title: `${service.title} | MIMA Insurance Brokers`,
+      description: service.shortDescription,
+      images: [service.image],
+    },
+  };
+}
 export default async function ServiceDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const service = SERVICES.find((s) => s.slug === slug);

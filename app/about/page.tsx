@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "About Us | Trusted Insurance Brokers Since 2005",
+  description:
+    "MIMA Insurance Brokers has served Kenya for over 20 years with offices in Nairobi and Nakuru. Meet our experienced risk management team.",
+};
 // app/about/page.tsx
 import Link from 'next/link';
 import {

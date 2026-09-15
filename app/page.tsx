@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "MIMA Insurance Brokers | Trusted Insurance Partner in Kenya",
+  description:
+    "Trusted insurance brokerage in Nairobi & Nakuru. Get free quotes for motor, health, business, WIBA, marine, travel, and life insurance.",
+};
 // app/page.tsx
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';

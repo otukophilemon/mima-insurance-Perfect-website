@@ -4,6 +4,19 @@ import { ArrowRight, Check } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { SERVICES } from '@/data/services';
+import type { Metadata } from "next";
+
+
+export const metadata: Metadata = {
+  title: "Insurance Services in Kenya | 15 Products from MIMA",
+  description:
+    "Explore 15 insurance products: motor, health, business, WIBA, marine, travel, money, burglary, life, and more. Get a free quote from MIMA Insurance Brokers.",
+};
+
+interface PageProps {
+  params: Promise<{ slug: string }>;
+}
+
 
 export default function ServicesPage() {
   return (
