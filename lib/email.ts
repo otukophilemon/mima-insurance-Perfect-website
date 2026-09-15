@@ -1,13 +1,14 @@
 // lib/email.ts
-import { Resend } from 'resend';
+import sgMail from '@sendgrid/mail';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@mimainsure.com';
 
-// ⚠️ CHANGE THIS to your email (the one you signed up with) for now
-// Later we'll switch to brokers@mimainsure.com after domain verification
+if (SENDGRID_API_KEY) {
+  sgMail.setApiKey(SENDGRID_API_KEY);
+}
+
 const MIMA_EMAIL = 'otukophilemon88@gmail.com';
-
-const FROM_EMAIL = 'onboarding@resend.dev';
 
 // ============================================
 // QUOTE EMAILS
@@ -23,9 +24,9 @@ export async function sendQuoteNotification(data: {
   details?: string;
 }) {
   try {
-    const { data: result, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+    await sgMail.send({
       to: MIMA_EMAIL,
+      from: FROM_EMAIL,
       subject: `New Quote Request: ${data.insurance_type}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -47,15 +48,8 @@ export async function sendQuoteNotification(data: {
         </div>
       `,
     });
-
-    if (error) {
-      console.error('Resend error:', error);
-      throw new Error(error.message);
-    }
-
-    return result;
   } catch (error) {
-    console.error('Failed to send quote notification:', error);
+    console.error('SendGrid quote notification error:', error);
     throw error;
   }
 }
@@ -66,9 +60,9 @@ export async function sendQuoteAutoReply(data: {
   insurance_type: string;
 }) {
   try {
-    const { data: result, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+    await sgMail.send({
       to: data.email,
+      from: FROM_EMAIL,
       subject: 'Thank you for contacting MIMA Insurance',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -94,21 +88,11 @@ export async function sendQuoteAutoReply(data: {
             <p>Best regards,<br>
             <strong>MIMA Insurance Brokers Limited</strong></p>
           </div>
-          <div style="background: #0f172a; color: #999; padding: 16px; text-align: center; font-size: 12px;">
-            © ${new Date().getFullYear()} MIMA Insurance Brokers Limited. All rights reserved.
-          </div>
         </div>
       `,
     });
-
-    if (error) {
-      console.error('Auto-reply error:', error);
-      throw new Error(error.message);
-    }
-
-    return result;
   } catch (error) {
-    console.error('Failed to send auto-reply:', error);
+    console.error('SendGrid quote auto-reply error:', error);
     throw error;
   }
 }
@@ -129,9 +113,9 @@ export async function sendClaimNotification(data: {
   policy_number: string;
 }) {
   try {
-    const { data: result, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+    await sgMail.send({
       to: MIMA_EMAIL,
+      from: FROM_EMAIL,
       subject: `New Claim: ${data.tracking_number} - ${data.claim_type}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -157,15 +141,8 @@ export async function sendClaimNotification(data: {
         </div>
       `,
     });
-
-    if (error) {
-      console.error('Resend error:', error);
-      throw new Error(error.message);
-    }
-
-    return result;
   } catch (error) {
-    console.error('Failed to send claim notification:', error);
+    console.error('SendGrid claim notification error:', error);
     throw error;
   }
 }
@@ -177,9 +154,9 @@ export async function sendClaimAutoReply(data: {
   claim_type: string;
 }) {
   try {
-    const { data: result, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+    await sgMail.send({
       to: data.email,
+      from: FROM_EMAIL,
       subject: `Claim Received: ${data.tracking_number}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -193,7 +170,6 @@ export async function sendClaimAutoReply(data: {
             <div style="background: #fef2f2; padding: 16px; border-left: 4px solid #dc2626; margin: 20px 0;">
               <p style="margin: 0;"><strong>Your Tracking Number:</strong></p>
               <p style="margin: 8px 0 0 0; font-size: 20px; font-family: monospace;">${data.tracking_number}</p>
-              <p style="margin: 8px 0 0 0; font-size: 12px; color: #666;">Save this to track your claim status</p>
             </div>
             <p><strong>What happens next?</strong></p>
             <ol>
@@ -210,15 +186,8 @@ export async function sendClaimAutoReply(data: {
         </div>
       `,
     });
-
-    if (error) {
-      console.error('Auto-reply error:', error);
-      throw new Error(error.message);
-    }
-
-    return result;
   } catch (error) {
-    console.error('Failed to send claim auto-reply:', error);
+    console.error('SendGrid claim auto-reply error:', error);
     throw error;
   }
 }
@@ -235,9 +204,9 @@ export async function sendContactNotification(data: {
   message: string;
 }) {
   try {
-    const { data: result, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+    await sgMail.send({
       to: MIMA_EMAIL,
+      from: FROM_EMAIL,
       subject: `Contact Form: ${data.subject}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -259,15 +228,8 @@ export async function sendContactNotification(data: {
         </div>
       `,
     });
-
-    if (error) {
-      console.error('Resend error:', error);
-      throw new Error(error.message);
-    }
-
-    return result;
   } catch (error) {
-    console.error('Failed to send contact notification:', error);
+    console.error('SendGrid contact notification error:', error);
     throw error;
   }
 }
@@ -278,9 +240,9 @@ export async function sendContactAutoReply(data: {
   subject: string;
 }) {
   try {
-    const { data: result, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+    await sgMail.send({
       to: data.email,
+      from: FROM_EMAIL,
       subject: 'Thank you for contacting MIMA Insurance',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -300,15 +262,8 @@ export async function sendContactAutoReply(data: {
         </div>
       `,
     });
-
-    if (error) {
-      console.error('Auto-reply error:', error);
-      throw new Error(error.message);
-    }
-
-    return result;
   } catch (error) {
-    console.error('Failed to send contact auto-reply:', error);
+    console.error('SendGrid contact auto-reply error:', error);
     throw error;
   }
 }
