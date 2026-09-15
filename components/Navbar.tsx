@@ -58,32 +58,6 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Top contact bar */}
-      <div className="hidden md:block bg-[#0f172a] text-white text-sm">
-        <div className="max-w-7xl mx-auto px-6 py-2 flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <a
-              href={`tel:${COMPANY.offices[0].phoneLink}`}
-              className="flex items-center gap-2 hover:text-red-400 transition"
-            >
-              <Phone size={14} />
-              <span>{COMPANY.offices[0].phone}</span>
-            </a>
-            <a
-              href={`mailto:${COMPANY.email}`}
-              className="flex items-center gap-2 hover:text-red-400 transition"
-            >
-              <Mail size={14} />
-              <span>{COMPANY.email}</span>
-            </a>
-          </div>
-          <div className="flex items-center gap-4 text-gray-300">
-            <span>Nairobi</span>
-            <span className="text-gray-500">•</span>
-            <span>Nakuru</span>
-          </div>
-        </div>
-      </div>
 
       {/* Main navbar */}
       <nav

@@ -7,15 +7,15 @@ export default function Services() {
   return (
     <section className="py-20 bg-gradient-to-b from-white to-gray-50">
       <div className="max-w-7xl mx-auto px-6">
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
+                {/* Section Header */}
+        <div className="flex flex-col items-center justify-center text-center mb-16">
           <span className="inline-block px-4 py-1.5 bg-red-50 text-[#dc2626] rounded-full text-sm font-semibold mb-4">
             Our Services
           </span>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 max-w-3xl">
             Comprehensive Insurance Solutions
           </h2>
-          <p className="text-lg text-gray-600 leading-relaxed">
+          <p className="text-lg text-gray-600 leading-relaxed max-w-2xl">
             We offer a wide range of insurance products designed to protect
             what matters most to you and your business.
           </p>

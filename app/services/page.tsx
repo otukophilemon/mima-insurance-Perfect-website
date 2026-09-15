@@ -41,7 +41,7 @@ export default function ServicesPage() {
       </section>
 
       {/* Quick Nav */}
-      <section className="bg-gray-50 border-b border-gray-100 sticky top-[60px] lg:top-[68px] z-40 backdrop-blur-lg bg-white/95">
+      <section className="bg-gray-50 border-b border-gray-100 sticky top-16 z-40 backdrop-blur-lg bg-white/95">
         <div className="max-w-7xl mx-auto px-6 py-3 overflow-x-auto">
           <div className="flex gap-2 min-w-max">
             {SERVICES.map((service) => (
