@@ -14,6 +14,8 @@ import {
   Shield,
   Plus,
   Clock,
+  Calendar,
+  TrendingUp,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -25,10 +27,25 @@ interface UserProfile {
   phone?: string;
 }
 
+interface Policy {
+  id: number;
+  policy_number: string;
+  policy_type: string;
+  coverage_description: string;
+  annual_premium: number;
+  start_date: string;
+  expiry_date: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPolicies, setLoadingPolicies] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
@@ -58,6 +75,28 @@ export default function DashboardPage() {
     loadUser();
   }, [router]);
 
+  useEffect(() => {
+    const loadPolicies = async () => {
+      try {
+        const res = await fetch('/api/client/policies');
+        const data = await res.json();
+        if (res.ok) {
+          setPolicies(data.policies || []);
+        } else {
+          console.error('Failed to load policies:', data.error);
+        }
+      } catch (error) {
+        console.error('Failed to fetch policies:', error);
+      } finally {
+        setLoadingPolicies(false);
+      }
+    };
+
+    if (!loading && user) {
+      loadPolicies();
+    }
+  }, [loading, user]);
+
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
@@ -68,6 +107,40 @@ export default function DashboardPage() {
       console.error('Logout failed:', error);
       setLoggingOut(false);
     }
+  };
+
+  const formatKES = (amount: number) =>
+    new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 0,
+    }).format(amount);
+
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString('en-KE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'bg-green-50 text-green-700 border-green-200';
+      case 'expired':
+        return 'bg-red-50 text-red-700 border-red-200';
+      case 'cancelled':
+        return 'bg-gray-50 text-gray-700 border-gray-200';
+      default:
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+    }
+  };
+
+  const getDaysUntilExpiry = (expiryDate: string) => {
+    const now = new Date();
+    const expiry = new Date(expiryDate);
+    const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
   };
 
   if (loading || !user) {
@@ -86,6 +159,12 @@ export default function DashboardPage() {
   }
 
   const displayName = user.full_name || user.email.split('@')[0];
+  const activePolicies = policies.filter((p) => p.status === 'active').length;
+  const totalPremium = policies.reduce((sum, p) => sum + p.annual_premium, 0);
+  const expiringSoon = policies.filter((p) => {
+    const days = getDaysUntilExpiry(p.expiry_date);
+    return days >= 0 && days <= 30 && p.status === 'active';
+  }).length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -124,25 +203,31 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-[#1e3a8a]">
               <div className="flex items-center justify-between mb-2">
                 <Shield className="text-[#1e3a8a]" size={28} />
-                <span className="text-3xl font-bold text-gray-900">0</span>
+                <span className="text-3xl font-bold text-gray-900">
+                  {loadingPolicies ? '—' : activePolicies}
+                </span>
               </div>
               <p className="text-gray-600 text-sm">Active Policies</p>
             </div>
 
             <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-[#dc2626]">
               <div className="flex items-center justify-between mb-2">
-                <FileText className="text-[#dc2626]" size={28} />
-                <span className="text-3xl font-bold text-gray-900">0</span>
+                <TrendingUp className="text-[#dc2626]" size={28} />
+                <span className="text-2xl font-bold text-gray-900">
+                  {loadingPolicies ? '—' : formatKES(totalPremium)}
+                </span>
               </div>
-              <p className="text-gray-600 text-sm">Active Claims</p>
+              <p className="text-gray-600 text-sm">Total Annual Premium</p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-green-500">
+            <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-orange-500">
               <div className="flex items-center justify-between mb-2">
-                <Clock className="text-green-500" size={28} />
-                <span className="text-3xl font-bold text-gray-900">0</span>
+                <Clock className="text-orange-500" size={28} />
+                <span className="text-3xl font-bold text-gray-900">
+                  {loadingPolicies ? '—' : expiringSoon}
+                </span>
               </div>
-              <p className="text-gray-600 text-sm">Pending Actions</p>
+              <p className="text-gray-600 text-sm">Expiring in 30 days</p>
             </div>
           </div>
 
@@ -164,23 +249,121 @@ export default function DashboardPage() {
                   </Link>
                 </div>
 
-                {/* Empty state */}
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
-                  <Shield className="text-gray-300 mx-auto mb-4" size={56} />
-                  <h3 className="text-lg font-bold text-gray-700 mb-2">
-                    No policies yet
-                  </h3>
-                  <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
-                    You don&apos;t have any active insurance policies with MIMA yet.
-                    Get started by requesting a free quote.
-                  </p>
-                  <Link
-                    href="/quote"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold rounded-full transition"
-                  >
-                    Get Your First Quote
-                  </Link>
-                </div>
+                {loadingPolicies ? (
+                  <div className="text-center py-12">
+                    <div className="w-8 h-8 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin mx-auto" />
+                  </div>
+                ) : policies.length === 0 ? (
+                  // Empty state
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
+                    <Shield className="text-gray-300 mx-auto mb-4" size={56} />
+                    <h3 className="text-lg font-bold text-gray-700 mb-2">
+                      No policies yet
+                    </h3>
+                    <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+                      You don&apos;t have any active insurance policies with MIMA yet.
+                      Get started by requesting a free quote.
+                    </p>
+                    <Link
+                      href="/quote"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold rounded-full transition"
+                    >
+                      Get Your First Quote
+                    </Link>
+                  </div>
+                ) : (
+                  // Policies list
+                  <div className="space-y-4">
+                    {policies.map((policy) => {
+                      const daysLeft = getDaysUntilExpiry(policy.expiry_date);
+                      const isExpiringSoon = daysLeft >= 0 && daysLeft <= 30;
+
+                      return (
+                        <div
+                          key={policy.id}
+                          className="border border-gray-200 rounded-2xl p-6 hover:border-[#1e3a8a] hover:shadow-md transition-all"
+                        >
+                          {/* Top: Type + Status */}
+                          <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1e3a8a] to-[#2563eb] flex items-center justify-center">
+                                <Shield className="text-white" size={24} />
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-lg text-gray-900">
+                                  {policy.policy_type} Insurance
+                                </h3>
+                                <p className="text-xs text-gray-500 font-mono">
+                                  {policy.policy_number}
+                                </p>
+                              </div>
+                            </div>
+                            <span
+                              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(policy.status)}`}
+                            >
+                              {policy.status}
+                            </span>
+                          </div>
+
+                          {/* Middle: Details grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4 border-t border-b border-gray-100 my-4">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Annual Premium</p>
+                              <p className="font-bold text-gray-900">
+                                {formatKES(policy.annual_premium)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Start Date</p>
+                              <p className="font-medium text-gray-900 text-sm">
+                                {formatDate(policy.start_date)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Expiry Date</p>
+                              <p className="font-medium text-gray-900 text-sm">
+                                {formatDate(policy.expiry_date)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Coverage */}
+                          <div className="mb-4">
+                            <p className="text-xs text-gray-500 mb-1">Coverage</p>
+                            <p className="text-sm text-gray-700">
+                              {policy.coverage_description}
+                            </p>
+                          </div>
+
+                          {/* Expiry warning */}
+                          {isExpiringSoon && (
+                            <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 mb-4">
+                              <Clock size={16} />
+                              <span>
+                                This policy expires in{' '}
+                                <strong>{daysLeft} days</strong>. Contact us for renewal.
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Footer */}
+                          <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-gray-100">
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <Calendar size={14} />
+                              Added on {formatDate(policy.created_at)}
+                            </div>
+                            <Link
+                              href="/contact"
+                              className="text-sm font-semibold text-[#dc2626] hover:text-[#b91c1c] transition"
+                            >
+                              Contact Support →
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Claims section */}

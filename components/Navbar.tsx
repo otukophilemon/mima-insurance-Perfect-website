@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
 import Image from 'next/image';
-import { Menu, X, Phone, Mail, LogIn, LayoutDashboard } from 'lucide-react';
+import { Menu, X, Phone, Mail, LogIn, LayoutDashboard, Shield } from 'lucide-react';
 import { COMPANY } from '@/data/company';
 
 const NAV_LINKS = [
@@ -20,24 +20,42 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
+  const [user, setUser] = useState<{
+  email: string;
+  name?: string;
+  isAdmin?: boolean;
+} | null>(null);
   const router = useRouter();
 
   // Check auth state on mount and on auth changes
   useEffect(() => {
     const supabase = createClient();
 
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUser({
-          email: user.email || '',
-          name: user.user_metadata?.full_name || user.email?.split('@')[0],
-        });
-      } else {
-        setUser(null);
-      }
-    };
+        const checkUser = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    // Fetch admin status from our API route (bypasses RLS)
+    try {
+      const res = await fetch('/api/client/me');
+      const data = await res.json();
+
+      setUser({
+        email: user.email || '',
+        name: data.user?.full_name || user.email?.split('@')[0],
+        isAdmin: data.user?.is_admin || false,
+      } as any);
+    } catch (error) {
+      console.error('Failed to fetch user info:', error);
+      setUser({
+        email: user.email || '',
+        name: user.user_metadata?.full_name || user.email?.split('@')[0],
+        isAdmin: false,
+      } as any);
+    }
+  } else {
+    setUser(null);
+  }
+};
 
     checkUser();
 
@@ -104,15 +122,26 @@ export default function Navbar() {
 
           {/* CTAs */}
           <div className="flex items-center gap-3">
-                    {/* Auth Button — Desktop */}
+                            {/* Auth Button — Desktop */}
         {user ? (
-          <Link
-            href="/dashboard"
-            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold transition-all"
-          >
-            <LayoutDashboard size={16} />
-            <span className="hidden lg:inline">Dashboard</span>
-          </Link>
+          <>
+            {user.isAdmin && (
+              <Link
+                href="/admin"
+                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold transition-all"
+              >
+                <Shield size={16} />
+                <span className="hidden lg:inline">Admin</span>
+              </Link>
+            )}
+            <Link
+              href="/dashboard"
+              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold transition-all"
+            >
+              <LayoutDashboard size={16} />
+              <span className="hidden lg:inline">Dashboard</span>
+            </Link>
+          </>
         ) : (
           <Link
             href="/login"
@@ -122,7 +151,8 @@ export default function Navbar() {
             <span className="hidden lg:inline">Login</span>
           </Link>
         )}
-            
+
+                        {/* Get a Quote */}
             <Link
               href="/quote"
               className="hidden md:inline-flex items-center px-6 py-2.5 rounded-full bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
@@ -138,6 +168,8 @@ export default function Navbar() {
             >
               {isOpen ? <X size={26} /> : <Menu size={26} />}
             </button>
+
+            
           </div>
         </div>
 
@@ -161,15 +193,27 @@ export default function Navbar() {
               ))}
               <div className="border-t border-gray-100 my-2" />
                           {/* Auth Button — Mobile */}
-            {user ? (
-              <Link
-                href="/dashboard"
-                onClick={() => setIsOpen(false)}
-                className="py-3 px-4 rounded-lg bg-[#1e3a8a] text-white font-semibold flex items-center justify-center gap-2 transition"
-              >
-                <LayoutDashboard size={18} />
-                My Dashboard
-              </Link>
+                        {user ? (
+              <>
+                {user.isAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setIsOpen(false)}
+                    className="py-3 px-4 rounded-lg bg-[#dc2626] text-white font-semibold flex items-center justify-center gap-2 transition"
+                  >
+                    <Shield size={18} />
+                    Admin Panel
+                  </Link>
+                )}
+                <Link
+                  href="/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className="py-3 px-4 rounded-lg bg-[#1e3a8a] text-white font-semibold flex items-center justify-center gap-2 transition"
+                >
+                  <LayoutDashboard size={18} />
+                  My Dashboard
+                </Link>
+              </>
             ) : (
               <Link
                 href="/login"
