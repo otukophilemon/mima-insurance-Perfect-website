@@ -5,11 +5,11 @@ import { SERVICES } from '@/data/services';
 
 export default function Services() {
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+    <section className="py-24 bg-gradient-to-b from-white to-gray-50">
       <div className="max-w-7xl mx-auto px-6">
                 {/* Section Header */}
         <div className="flex flex-col items-center justify-center text-center mb-16">
-          <span className="inline-block px-4 py-1.5 bg-red-50 text-[#dc2626] rounded-full text-sm font-semibold mb-4">
+                    <span className="inline-block px-5 py-2 bg-red-50 text-[#dc2626] rounded-full text-base font-bold mb-5 uppercase tracking-wider">
             Our Services
           </span>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 max-w-3xl">
