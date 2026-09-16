@@ -40,6 +40,43 @@ export async function proxy(request: NextRequest) {
     url.searchParams.set('next', pathname);
     return NextResponse.redirect(url);
   }
+      // Protect /admin — only for admins
+  if (pathname.startsWith('/admin')) {
+    // Not logged in → go to login
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.searchParams.set('next', pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // Logged in — check admin via service role client (bypasses RLS)
+    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    );
+
+    const { data: profile, error } = await adminSupabase
+      .from('user_profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single();
+
+    console.log('[ADMIN CHECK]', {
+      userId: user.id,
+      email: user.email,
+      isAdmin: profile?.is_admin,
+      error: error?.message,
+    });
+
+    // Not admin → send to dashboard
+    if (!profile?.is_admin) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/dashboard';
+      return NextResponse.redirect(url);
+    }
+  }
 
   // Redirect logged-in users away from /login and /register
   if ((pathname === '/login' || pathname === '/register') && user) {
