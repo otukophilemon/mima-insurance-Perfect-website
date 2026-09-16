@@ -15,6 +15,7 @@ import {
   X,
   Bell,
   BookOpen,
+  UserCog,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/policies', label: 'Policies', icon: FileText },
   { href: '/admin/blog', label: 'Blog', icon: BookOpen },
+  { href: '/admin/team', label: 'Team', icon: UserCog },
   { href: '/admin/users', label: 'Clients', icon: Users },
 ];
 

@@ -7,6 +7,7 @@ import { COMPANY } from '@/data/company';
 const QUICK_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/about', label: 'About Us' },
+  { href: '/team', label: 'Our Team' },
   { href: '/services', label: 'Services' },
   { href: '/blog', label: 'Blog' },
   { href: '/quote', label: 'Get a Quote' },

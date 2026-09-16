@@ -13,6 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: '', priority: 1.0, changeFrequency: 'weekly' as const },
     { url: '/about', priority: 0.8, changeFrequency: 'monthly' as const },
     { url: '/services', priority: 0.9, changeFrequency: 'weekly' as const },
+    { url: '/team', priority: 0.8, changeFrequency: 'monthly' as const },
     { url: '/blog', priority: 0.9, changeFrequency: 'weekly' as const },
     { url: '/contact', priority: 0.9, changeFrequency: 'monthly' as const },
     { url: '/quote', priority: 1.0, changeFrequency: 'weekly' as const },
@@ -27,14 +28,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: 'monthly' as const,
   }));
 
-  // Fetch blog posts from Supabase
+  // Fetch blog posts and agents from Supabase
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  // Blog posts
   let blogPages: { url: string; priority: number; changeFrequency: 'weekly' }[] = [];
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
     const { data: posts } = await supabase
       .from('blog_posts')
       .select('slug, published_at')
@@ -50,7 +52,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error('Error fetching blog posts for sitemap:', error);
   }
 
-  return [...staticPages, ...servicePages, ...blogPages].map((page) => ({
+  // Agents
+  let agentPages: { url: string; priority: number; changeFrequency: 'monthly' }[] = [];
+  try {
+    const { data: agents } = await supabase
+      .from('agents')
+      .select('slug')
+      .eq('active', true)
+      .order('display_order', { ascending: true });
+
+    agentPages = (agents || []).map((agent) => ({
+      url: `/team/${agent.slug}`,
+      priority: 0.6,
+      changeFrequency: 'monthly' as const,
+    }));
+  } catch (error) {
+    console.error('Error fetching agents for sitemap:', error);
+  }
+
+  return [
+    ...staticPages,
+    ...servicePages,
+    ...blogPages,
+    ...agentPages,
+  ].map((page) => ({
     url: `${BASE_URL}${page.url}`,
     lastModified: now,
     changeFrequency: page.changeFrequency,
