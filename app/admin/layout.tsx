@@ -13,12 +13,15 @@ import {
   Home,
   Menu,
   X,
+  Bell,
+  BookOpen,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/policies', label: 'Policies', icon: FileText },
+  { href: '/admin/blog', label: 'Blog', icon: BookOpen },
   { href: '/admin/users', label: 'Clients', icon: Users },
 ];
 
@@ -41,7 +44,10 @@ export default function AdminLayout({
     load();
   }, []);
 
-  const handleLogout = async () => {
+    const handleLogout = async () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('mima_user_info');
+    }
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/');
     router.refresh();

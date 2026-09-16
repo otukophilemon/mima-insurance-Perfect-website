@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/services', label: 'Services' },
   { href: '/about', label: 'About' },
+  { href: '/blog', label: 'Blog' },
   { href: '/contact', label: 'Contact' },
   { href: '/claim', label: 'Claims' },
 ];
@@ -31,30 +32,71 @@ export default function Navbar() {
   useEffect(() => {
     const supabase = createClient();
 
-        const checkUser = async () => {
+       const checkUser = async () => {
   const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    // Fetch admin status from our API route (bypasses RLS)
+
+  if (!user) {
+    setUser(null);
+    return;
+  }
+
+  // Try to get cached user info first (fast path)
+  const cached = sessionStorage.getItem('mima_user_info');
+  if (cached) {
     try {
-      const res = await fetch('/api/client/me');
+      const parsed = JSON.parse(cached);
+      // Verify cache is for the same user
+      if (parsed.email === user.email) {
+        setUser(parsed);
+        return;
+      }
+    } catch {
+      // Corrupt cache — ignore
+    }
+  }
+
+  // Fetch fresh data with retry
+  const fetchUserInfo = async (retries = 2): Promise<void> => {
+    try {
+      const res = await fetch('/api/client/me', {
+        // Don't wait more than 10 seconds
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = await res.json();
 
-      setUser({
+      const userInfo = {
         email: user.email || '',
         name: data.user?.full_name || user.email?.split('@')[0],
         isAdmin: data.user?.is_admin || false,
-      } as any);
+      };
+
+      setUser(userInfo as any);
+
+      // Cache for 5 minutes
+      sessionStorage.setItem('mima_user_info', JSON.stringify(userInfo));
     } catch (error) {
-      console.error('Failed to fetch user info:', error);
+      if (retries > 0) {
+        // Wait 500ms and retry
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return fetchUserInfo(retries - 1);
+      }
+
+      console.warn('User info fetch failed after retries — using fallback');
+      // Fallback: use auth user data without admin flag
       setUser({
         email: user.email || '',
         name: user.user_metadata?.full_name || user.email?.split('@')[0],
         isAdmin: false,
       } as any);
     }
-  } else {
-    setUser(null);
-  }
+  };
+
+  await fetchUserInfo();
 };
 
     checkUser();

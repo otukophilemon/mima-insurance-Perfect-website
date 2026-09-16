@@ -97,9 +97,13 @@ export default function DashboardPage() {
     }
   }, [loading, user]);
 
-  const handleLogout = async () => {
+    const handleLogout = async () => {
     setLoggingOut(true);
     try {
+      // Clear cached user info
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('mima_user_info');
+      }
       await fetch('/api/auth/logout', { method: 'POST' });
       router.push('/');
       router.refresh();
