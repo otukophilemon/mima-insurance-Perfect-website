@@ -12,6 +12,7 @@ const QUICK_LINKS = [
   { href: '/blog', label: 'Blog' },
   { href: '/quote', label: 'Get a Quote' },
   { href: '/claim', label: 'File a Claim' },
+  { href: '/pay', label: 'Pay Premium' },
   { href: '/contact', label: 'Contact' },
 ];
 
@@ -163,7 +164,13 @@ export default function Footer() {
           <p className="text-gray-500 text-center md:text-left">
             © {new Date().getFullYear()} {COMPANY.legalName}. All rights reserved.
           </p>
-          <div className="flex gap-6">
+                    <div className="flex flex-wrap gap-6">
+            <Link
+              href="/pay"
+              className="text-gray-500 hover:text-[#dc2626] transition-colors"
+            >
+              Pay Premium
+            </Link>
             <Link
               href="/privacy"
               className="text-gray-500 hover:text-[#dc2626] transition-colors"

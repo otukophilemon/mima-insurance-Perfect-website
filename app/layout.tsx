@@ -63,8 +63,9 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  icons: {
-    icon: "/favicon.ico",
+      icons: {
+    icon: "/images/mima-logo.png",
+    apple: "/images/mima-logo.png",
   },
 };
 
@@ -74,7 +75,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+        <html lang="en" data-scroll-behavior="smooth">
             <body className="antialiased">
         {children}
         <WhatsAppButton />

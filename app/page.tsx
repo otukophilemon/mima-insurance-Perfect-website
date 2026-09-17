@@ -10,14 +10,17 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-                  {/* Hero Section */}
+             {/* Hero Section */}
       <section
-        className="relative text-white bg-cover bg-center min-h-[70vh] flex items-center justify-center"
+        className="relative text-white bg-cover bg-center flex items-center justify-center py-24 md:py-32"
         style={{
           backgroundImage:
             'linear-gradient(to right, rgba(30, 58, 138, 0.92), rgba(30, 64, 175, 0.75)), url(/images/hero-bg.jpg)',
         }}
       >
+        {/* Preload hero image for better LCP */}
+        <link rel="preload" as="image" href="/images/hero-bg.jpg" />
+        
         {/* Centered text — vertically & horizontally centered */}
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
