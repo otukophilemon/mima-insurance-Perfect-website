@@ -12,7 +12,11 @@ import {
   AlertCircle,
   Loader2,
   ArrowRight,
+  Download,
+  Filter,
 } from 'lucide-react';
+import { filterByDateRange } from '@/lib/dateRange';
+import { exportToCSV, formatDateForCSV } from '@/lib/csv';
 
 interface Policy {
   id: number;
@@ -73,6 +77,12 @@ function AdminPoliciesPageInner() {
     insurance_type: string;
   } | null>(null);
 
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
   const loadPolicies = async () => {
     try {
       const res = await fetch('/api/admin/policies');
@@ -91,7 +101,7 @@ function AdminPoliciesPageInner() {
     loadPolicies();
   }, []);
 
-  // Handle "?from_quote=<id>" pre-fill
+  // Handle "?from_quote=<id>" pre-fill (Phase 8)
   useEffect(() => {
     const quoteId = searchParams.get('from_quote');
     if (!quoteId) return;
@@ -111,10 +121,7 @@ function AdminPoliciesPageInner() {
           return;
         }
 
-        // Fuzzy-match the quote's insurance_type to a POLICY_TYPES entry
-        const normalizedQuote = quote.insurance_type
-          .toLowerCase()
-          .replace(/\s|-/g, '');
+        const normalizedQuote = quote.insurance_type.toLowerCase().replace(/\s|-/g, '');
         const matchedType =
           POLICY_TYPES.find(
             (t) => t.toLowerCase().replace(/\s|-/g, '') === normalizedQuote
@@ -174,7 +181,6 @@ function AdminPoliciesPageInner() {
 
       if (!res.ok) throw new Error(data.error || 'Failed to create policy');
 
-      // If this policy came from a quote, mark the quote as converted
       if (formData.from_quote_id) {
         try {
           const quoteRes = await fetch(
@@ -204,7 +210,6 @@ function AdminPoliciesPageInner() {
       setShowForm(false);
       loadPolicies();
 
-      // Clean the URL so refreshing doesn't re-trigger the pre-fill
       if (searchParams.get('from_quote')) {
         router.replace('/admin/policies');
       }
@@ -254,6 +259,52 @@ function AdminPoliciesPageInner() {
       month: 'short',
       day: 'numeric',
     });
+
+  // Filter by date range first
+  const dateFiltered = filterByDateRange(policies, 'start_date', dateFrom, dateTo);
+
+  // Then status + search
+  const filtered = dateFiltered.filter((p) => {
+    if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        p.policy_number.toLowerCase().includes(q) ||
+        p.policy_type.toLowerCase().includes(q) ||
+        (p.user_profiles?.email || '').toLowerCase().includes(q) ||
+        (p.user_profiles?.full_name || '').toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const handleExport = () => {
+    const rows = filtered.map((p) => ({
+      'Policy Number': p.policy_number,
+      'Policy Type': p.policy_type,
+      Client: p.user_profiles?.full_name || 'Unknown',
+      Email: p.user_profiles?.email || '',
+      'Annual Premium': p.annual_premium,
+      'Start Date': formatDateForCSV(p.start_date),
+      'Expiry Date': formatDateForCSV(p.expiry_date),
+      Status: p.status,
+      Coverage: p.coverage_description,
+    }));
+
+    const suffix =
+      dateFrom || dateTo
+        ? `_${dateFrom || 'start'}_to_${dateTo || 'today'}`
+        : `_${new Date().toISOString().slice(0, 10)}`;
+
+    exportToCSV(rows, `mima_policies${suffix}`);
+  };
+
+  const statusCounts = {
+    all: dateFiltered.length,
+    active: dateFiltered.filter((p) => p.status === 'active').length,
+    expired: dateFiltered.filter((p) => p.status === 'expired').length,
+    cancelled: dateFiltered.filter((p) => p.status === 'cancelled').length,
+  };
 
   return (
     <div className="p-6 lg:p-10">
@@ -326,7 +377,6 @@ function AdminPoliciesPageInner() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid md:grid-cols-2 gap-5">
-              {/* Client Email */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Client Email *
@@ -340,12 +390,8 @@ function AdminPoliciesPageInner() {
                   placeholder="client@example.com"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#dc2626] focus:ring-2 focus:ring-red-100 outline-none transition"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Client must already have a MIMA account
-                </p>
               </div>
 
-              {/* Policy Number */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Policy Number *
@@ -361,7 +407,6 @@ function AdminPoliciesPageInner() {
                 />
               </div>
 
-              {/* Policy Type */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Policy Type *
@@ -381,7 +426,6 @@ function AdminPoliciesPageInner() {
                 </select>
               </div>
 
-              {/* Annual Premium */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Annual Premium (KES) *
@@ -399,7 +443,6 @@ function AdminPoliciesPageInner() {
                 />
               </div>
 
-              {/* Start Date */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Start Date *
@@ -414,7 +457,6 @@ function AdminPoliciesPageInner() {
                 />
               </div>
 
-              {/* Expiry Date */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Expiry Date *
@@ -429,7 +471,6 @@ function AdminPoliciesPageInner() {
                 />
               </div>
 
-              {/* Coverage Description */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Coverage Description *
@@ -445,7 +486,6 @@ function AdminPoliciesPageInner() {
                 />
               </div>
 
-              {/* Notes */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Additional Notes
@@ -491,12 +531,86 @@ function AdminPoliciesPageInner() {
         </div>
       )}
 
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-md p-4 mb-6">
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by policy #, type, client name, or email..."
+            className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-[#dc2626] focus:ring-2 focus:ring-red-100 outline-none transition text-sm"
+          />
+
+          <div className="flex gap-2 flex-wrap">
+            {(['all', 'active', 'expired', 'cancelled'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-4 py-2 rounded-full text-xs font-semibold transition capitalize ${
+                  statusFilter === s
+                    ? 'bg-[#1e3a8a] text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {s} ({statusCounts[s]})
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Date range + export */}
+        <div className="flex flex-col lg:flex-row gap-3 pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            <Filter size={16} className="text-gray-400" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Start date from"
+            />
+            <span className="text-gray-400 text-sm">→</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Start date to"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear
+              </button>
+            )}
+            <span className="text-xs text-gray-500 italic ml-2">
+              (filtered by policy start date)
+            </span>
+          </div>
+
+          <button
+            onClick={handleExport}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition"
+          >
+            <Download size={16} />
+            Export CSV ({filtered.length})
+          </button>
+        </div>
+      </div>
+
       {/* Policies List */}
       <div className="bg-white rounded-2xl shadow-md overflow-hidden">
         <div className="p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <FileText className="text-[#1e3a8a]" size={22} />
-            All Policies ({policies.length})
+            All Policies ({filtered.length})
           </h2>
         </div>
 
@@ -505,12 +619,18 @@ function AdminPoliciesPageInner() {
             <Loader2 className="animate-spin mx-auto text-[#dc2626] mb-3" size={32} />
             <p className="text-gray-500">Loading policies...</p>
           </div>
-        ) : policies.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <FileText className="mx-auto text-gray-300 mb-4" size={56} />
-            <h3 className="text-lg font-bold text-gray-700 mb-2">No policies yet</h3>
+            <h3 className="text-lg font-bold text-gray-700 mb-2">
+              {searchQuery || statusFilter !== 'all' || dateFrom || dateTo
+                ? 'No matching policies'
+                : 'No policies yet'}
+            </h3>
             <p className="text-gray-500 text-sm mb-6">
-              Click &quot;Add New Policy&quot; to create the first one
+              {searchQuery || statusFilter !== 'all' || dateFrom || dateTo
+                ? 'Try adjusting your filters'
+                : 'Click "Add New Policy" to create the first one'}
             </p>
           </div>
         ) : (
@@ -518,32 +638,17 @@ function AdminPoliciesPageInner() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                    Client
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                    Policy
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                    Premium
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                    Expires
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                    Status
-                  </th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                    Actions
-                  </th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">Client</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">Policy</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">Premium</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">Expires</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</th>
+                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {policies.map((policy) => (
-                  <tr
-                    key={policy.id}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition"
-                  >
+                {filtered.map((policy) => (
+                  <tr key={policy.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">
                         {policy.user_profiles?.full_name || 'Unknown'}

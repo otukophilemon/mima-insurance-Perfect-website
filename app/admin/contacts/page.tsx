@@ -1,6 +1,10 @@
+// app/admin/contacts/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Download, Filter } from 'lucide-react';
+import { filterByDateRange } from '@/lib/dateRange';
+import { exportToCSV, formatDateForCSV } from '@/lib/csv';
 
 interface Contact {
   id: number;
@@ -21,6 +25,8 @@ export default function ContactsPage() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selected, setSelected] = useState<Contact | null>(null);
   const [updating, setUpdating] = useState<number | null>(null);
 
@@ -90,8 +96,32 @@ export default function ContactsPage() {
     }
   };
 
-  // Filter + search
-  const filtered = contacts.filter((c) => {
+  // Export to CSV
+  const handleExport = () => {
+    const rows = filtered.map((c) => ({
+      ID: c.id,
+      Name: c.name,
+      Email: c.email,
+      Phone: c.phone || '',
+      Subject: c.subject,
+      Message: c.message,
+      Status: c.status,
+      'Received Date': formatDateForCSV(c.created_at),
+    }));
+
+    const suffix =
+      dateFrom || dateTo
+        ? `_${dateFrom || 'start'}_to_${dateTo || 'today'}`
+        : `_${new Date().toISOString().slice(0, 10)}`;
+
+    exportToCSV(rows, `mima_contacts${suffix}`);
+  };
+
+  // Apply date filter first
+  const dateFiltered = filterByDateRange(contacts, 'created_at', dateFrom, dateTo);
+
+  // Then status + search
+  const filtered = dateFiltered.filter((c) => {
     const matchesFilter = filter === 'all' || c.status === filter;
     const q = search.toLowerCase();
     const matchesSearch =
@@ -103,10 +133,10 @@ export default function ContactsPage() {
   });
 
   const counts = {
-    all: contacts.length,
-    new: contacts.filter((c) => c.status === 'new').length,
-    read: contacts.filter((c) => c.status === 'read').length,
-    replied: contacts.filter((c) => c.status === 'replied').length,
+    all: dateFiltered.length,
+    new: dateFiltered.filter((c) => c.status === 'new').length,
+    read: dateFiltered.filter((c) => c.status === 'read').length,
+    replied: dateFiltered.filter((c) => c.status === 'replied').length,
   };
 
   const statusBadge = (status: Contact['status']) => {
@@ -154,15 +184,56 @@ export default function ContactsPage() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Search by name, email, subject, or message..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-        />
+      {/* Search + Date Range + Export */}
+      <div className="mb-4 bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex flex-col lg:flex-row gap-3">
+          <input
+            type="text"
+            placeholder="Search by name, email, subject, or message..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter size={16} className="text-gray-400 flex-shrink-0" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="From date"
+            />
+            <span className="text-gray-400 text-sm">→</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="To date"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={handleExport}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition"
+          >
+            <Download size={16} />
+            Export CSV ({filtered.length})
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -170,11 +241,21 @@ export default function ContactsPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                From
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Subject
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -186,12 +267,18 @@ export default function ContactsPage() {
               </tr>
             ) : (
               filtered.map((contact) => (
-                <tr key={contact.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openContact(contact)}>
+                <tr
+                  key={contact.id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => openContact(contact)}
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{contact.name}</div>
                     <div className="text-xs text-gray-500">{contact.email}</div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">{contact.subject}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">
+                    {contact.subject}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(contact.created_at).toLocaleDateString('en-GB', {
                       day: '2-digit',
@@ -199,8 +286,13 @@ export default function ContactsPage() {
                       year: 'numeric',
                     })}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{statusBadge(contact.status)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {statusBadge(contact.status)}
+                  </td>
+                  <td
+                    className="px-6 py-4 whitespace-nowrap text-right text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={() => deleteContact(contact.id)}
                       disabled={updating === contact.id}
@@ -219,7 +311,10 @@ export default function ContactsPage() {
       {/* Detail Drawer */}
       {selected && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setSelected(null)} />
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setSelected(null)}
+          />
           <div className="relative ml-auto w-full max-w-lg bg-white shadow-xl flex flex-col h-full">
             {/* Drawer header */}
             <div className="p-6 border-b flex items-start justify-between">
@@ -240,14 +335,20 @@ export default function ContactsPage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <div className="text-xs text-gray-500 uppercase">Email</div>
-                  <a href={`mailto:${selected.email}`} className="text-blue-600 hover:underline break-all">
+                  <a
+                    href={`mailto:${selected.email}`}
+                    className="text-blue-600 hover:underline break-all"
+                  >
                     {selected.email}
                   </a>
                 </div>
                 <div>
                   <div className="text-xs text-gray-500 uppercase">Phone</div>
                   {selected.phone ? (
-                    <a href={`tel:${selected.phone}`} className="text-blue-600 hover:underline">
+                    <a
+                      href={`tel:${selected.phone}`}
+                      className="text-blue-600 hover:underline"
+                    >
                       {selected.phone}
                     </a>
                   ) : (

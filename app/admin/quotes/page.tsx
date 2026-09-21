@@ -19,7 +19,11 @@ import {
   TrendingUp,
   Ban,
   ArrowRight,
+  Download,
+  Filter,
 } from 'lucide-react';
+import { filterByDateRange } from '@/lib/dateRange';
+import { exportToCSV, formatDateForCSV } from '@/lib/csv';
 
 interface Quote {
   id: number;
@@ -79,11 +83,12 @@ function formatInsuranceType(type: string): string {
 export default function AdminQuotesPage() {
   const router = useRouter();
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [filteredQuotes, setFilteredQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -96,7 +101,6 @@ export default function AdminQuotesPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setQuotes(data.quotes || []);
-      setFilteredQuotes(data.quotes || []);
     } catch (error) {
       console.error('Load error:', error);
       setError('Failed to load quotes');
@@ -109,28 +113,49 @@ export default function AdminQuotesPage() {
     loadQuotes();
   }, []);
 
-  // Apply search + status filters
-  useEffect(() => {
-    let filtered = quotes;
+  // Date-filtered quotes (used for stats + filter tab counts)
+  const dateFiltered = filterByDateRange(quotes, 'created_at', dateFrom, dateTo);
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((q) => q.status === statusFilter);
+  // Apply search + status to date-filtered set
+  const filteredQuotes = dateFiltered.filter((q) => {
+    if (statusFilter !== 'all' && q.status !== statusFilter) {
+      if (!(statusFilter === 'new' && !q.status)) return false;
     }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (quote) =>
-          quote.full_name.toLowerCase().includes(query) ||
-          quote.email.toLowerCase().includes(query) ||
-          quote.phone.includes(query) ||
-          quote.insurance_type.toLowerCase().includes(query) ||
-          quote.location.toLowerCase().includes(query)
+      return (
+        q.full_name.toLowerCase().includes(query) ||
+        q.email.toLowerCase().includes(query) ||
+        q.phone.includes(query) ||
+        q.insurance_type.toLowerCase().includes(query) ||
+        q.location.toLowerCase().includes(query)
       );
     }
+    return true;
+  });
 
-    setFilteredQuotes(filtered);
-  }, [searchQuery, statusFilter, quotes]);
+  const handleExport = () => {
+    const rows = filteredQuotes.map((q) => ({
+      'Quote ID': q.id,
+      Name: q.full_name,
+      Email: q.email,
+      Phone: q.phone,
+      'Insurance Type': formatInsuranceType(q.insurance_type),
+      Location: q.location,
+      Age: q.age || '',
+      Status: getStatusLabel(q.status || 'new'),
+      'Requested Date': formatDateForCSV(q.created_at),
+      Details: q.details || '',
+    }));
+
+    const suffix =
+      dateFrom || dateTo
+        ? `_${dateFrom || 'start'}_to_${dateTo || 'today'}`
+        : `_${new Date().toISOString().slice(0, 10)}`;
+
+    exportToCSV(rows, `mima_quotes${suffix}`);
+  };
 
   const handleUpdateStatus = async (id: number, newStatus: string) => {
     setUpdatingStatus(true);
@@ -155,7 +180,7 @@ export default function AdminQuotesPage() {
     }
   };
 
-  // 👇 NEW: Convert quote to policy
+  // Convert quote to policy
   const handleConvertToPolicy = (quote: Quote) => {
     if (
       !confirm(
@@ -190,10 +215,10 @@ export default function AdminQuotesPage() {
   };
 
   const stats = {
-    total: quotes.length,
-    new: quotes.filter((q) => q.status === 'new' || !q.status).length,
-    contacted: quotes.filter((q) => q.status === 'contacted').length,
-    converted: quotes.filter((q) => q.status === 'converted').length,
+    total: dateFiltered.length,
+    new: dateFiltered.filter((q) => q.status === 'new' || !q.status).length,
+    contacted: dateFiltered.filter((q) => q.status === 'contacted').length,
+    converted: dateFiltered.filter((q) => q.status === 'converted').length,
   };
 
   return (
@@ -282,7 +307,7 @@ export default function AdminQuotesPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-2xl shadow-md p-4 mb-6">
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
           {/* Search */}
           <div className="relative">
             <Search
@@ -316,10 +341,10 @@ export default function AdminQuotesPage() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              All ({quotes.length})
+              All ({dateFiltered.length})
             </button>
             {STATUS_OPTIONS.map((option) => {
-              const count = quotes.filter(
+              const count = dateFiltered.filter(
                 (q) =>
                   q.status === option.value ||
                   (!q.status && option.value === 'new')
@@ -339,6 +364,48 @@ export default function AdminQuotesPage() {
               );
             })}
           </div>
+        </div>
+
+        {/* Date range + export */}
+        <div className="flex flex-col lg:flex-row gap-3 pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            <Filter size={16} className="text-gray-400" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="From date"
+            />
+            <span className="text-gray-400 text-sm">→</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="To date"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={handleExport}
+            disabled={filteredQuotes.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition"
+          >
+            <Download size={16} />
+            Export CSV ({filteredQuotes.length})
+          </button>
         </div>
       </div>
 
@@ -368,12 +435,12 @@ export default function AdminQuotesPage() {
           <div className="p-12 text-center">
             <FileText className="mx-auto text-gray-300 mb-4" size={56} />
             <h3 className="text-lg font-bold text-gray-700 mb-2">
-              {searchQuery || statusFilter !== 'all'
+              {searchQuery || statusFilter !== 'all' || dateFrom || dateTo
                 ? 'No matching quotes'
                 : 'No quotes yet'}
             </h3>
             <p className="text-gray-500 text-sm">
-              {searchQuery || statusFilter !== 'all'
+              {searchQuery || statusFilter !== 'all' || dateFrom || dateTo
                 ? 'Try adjusting your filters'
                 : 'Quote requests from the website will appear here'}
             </p>
@@ -383,49 +450,28 @@ export default function AdminQuotesPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
-                    Client
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
-                    Insurance Type
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
-                    Location
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
-                    Status
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
-                    Requested
-                  </th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
-                    Actions
-                  </th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Client</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Insurance Type</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Location</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Status</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Requested</th>
+                  <th className="text-right px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredQuotes.map((quote) => (
-                  <tr
-                    key={quote.id}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition"
-                  >
+                  <tr key={quote.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {quote.full_name}
-                      </div>
+                      <div className="text-sm font-medium text-gray-900">{quote.full_name}</div>
                       <div className="text-xs text-gray-500">{quote.email}</div>
-                      <div className="text-xs text-gray-400">
-                        {quote.phone}
-                      </div>
+                      <div className="text-xs text-gray-400">{quote.phone}</div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-block px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold">
                         {formatInsuranceType(quote.insurance_type)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {quote.location}
-                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{quote.location}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusStyle(
