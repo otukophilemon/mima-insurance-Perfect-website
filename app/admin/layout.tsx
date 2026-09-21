@@ -20,6 +20,7 @@ import {
   TrendingUp,
   ShieldCheck,
   Mail,
+  CreditCard
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: '/admin/team', label: 'Team', icon: UserCog },
   { href: '/admin/claims', label: 'Claims', icon: AlertCircle },
   { href: '/admin/quotes', label: 'Quotes', icon: TrendingUp },
+  { href: '/admin/payments', label: 'Payments', icon: CreditCard },
   { href: '/admin/users', label: 'Clients', icon: Users },
   { href: '/admin/contacts', label: 'Contacts', icon: Mail },
   { href: '/admin/admins', label: 'Admins', icon: ShieldCheck },

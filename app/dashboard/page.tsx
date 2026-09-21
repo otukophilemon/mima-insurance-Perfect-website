@@ -16,6 +16,7 @@ import {
   Clock,
   Calendar,
   TrendingUp,
+  CreditCard,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -52,14 +53,29 @@ interface Claim {
   created_at: string;
 }
 
+interface Payment {
+  id: number;
+  amount: number;
+  currency: string;
+  method: string;
+  reference: string | null;
+  status: string;
+  paid_at: string;
+  notes: string | null;
+  policy_id: number | null;
+  policy: { policy_number: string; policy_type: string } | null;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
   const [loadingClaims, setLoadingClaims] = useState(true);
+  const [loadingPayments, setLoadingPayments] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
@@ -94,11 +110,7 @@ export default function DashboardPage() {
       try {
         const res = await fetch('/api/client/policies');
         const data = await res.json();
-        if (res.ok) {
-          setPolicies(data.policies || []);
-        } else {
-          console.error('Failed to load policies:', data.error);
-        }
+        if (res.ok) setPolicies(data.policies || []);
       } catch (error) {
         console.error('Failed to fetch policies:', error);
       } finally {
@@ -106,9 +118,7 @@ export default function DashboardPage() {
       }
     };
 
-    if (!loading && user) {
-      loadPolicies();
-    }
+    if (!loading && user) loadPolicies();
   }, [loading, user]);
 
   useEffect(() => {
@@ -116,11 +126,7 @@ export default function DashboardPage() {
       try {
         const res = await fetch('/api/client/claims');
         const data = await res.json();
-        if (res.ok) {
-          setClaims(data.claims || []);
-        } else {
-          console.error('Failed to load claims:', data.error);
-        }
+        if (res.ok) setClaims(data.claims || []);
       } catch (error) {
         console.error('Failed to fetch claims:', error);
       } finally {
@@ -128,9 +134,23 @@ export default function DashboardPage() {
       }
     };
 
-    if (!loading && user) {
-      loadClaims();
-    }
+    if (!loading && user) loadClaims();
+  }, [loading, user]);
+
+  useEffect(() => {
+    const loadPayments = async () => {
+      try {
+        const res = await fetch('/api/client/payments');
+        const data = await res.json();
+        if (res.ok) setPayments(data.payments || []);
+      } catch (error) {
+        console.error('Failed to fetch payments:', error);
+      } finally {
+        setLoadingPayments(false);
+      }
+    };
+
+    if (!loading && user) loadPayments();
   }, [loading, user]);
 
   const handleLogout = async () => {
@@ -148,10 +168,10 @@ export default function DashboardPage() {
     }
   };
 
-  const formatKES = (amount: number) =>
+  const formatKES = (amount: number, currency = 'KES') =>
     new Intl.NumberFormat('en-KE', {
       style: 'currency',
-      currency: 'KES',
+      currency,
       minimumFractionDigits: 0,
     }).format(amount);
 
@@ -195,16 +215,12 @@ export default function DashboardPage() {
   };
 
   const formatClaimType = (type: string) =>
-    type
-      .split('-')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
+    type.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
   const getDaysUntilExpiry = (expiryDate: string) => {
     const now = new Date();
     const expiry = new Date(expiryDate);
-    const diff = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return diff;
+    return Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   };
 
   if (loading || !user) {
@@ -229,6 +245,10 @@ export default function DashboardPage() {
     const days = getDaysUntilExpiry(p.expiry_date);
     return days >= 0 && days <= 30 && p.status === 'active';
   }).length;
+
+  const totalPaid = payments
+    .filter((p) => p.status === 'completed')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -296,7 +316,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Left: Policies + Claims */}
+            {/* Left: Policies + Claims + Payments */}
             <div className="lg:col-span-2">
               {/* Policies */}
               <div className="bg-white rounded-2xl shadow-md p-8 mb-6">
@@ -321,12 +341,9 @@ export default function DashboardPage() {
                 ) : policies.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
                     <Shield className="text-gray-300 mx-auto mb-4" size={56} />
-                    <h3 className="text-lg font-bold text-gray-700 mb-2">
-                      No policies yet
-                    </h3>
+                    <h3 className="text-lg font-bold text-gray-700 mb-2">No policies yet</h3>
                     <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
                       You don&apos;t have any active insurance policies with MIMA yet.
-                      Get started by requesting a free quote.
                     </p>
                     <Link
                       href="/quote"
@@ -340,7 +357,6 @@ export default function DashboardPage() {
                     {policies.map((policy) => {
                       const daysLeft = getDaysUntilExpiry(policy.expiry_date);
                       const isExpiringSoon = daysLeft >= 0 && daysLeft <= 30;
-
                       return (
                         <div
                           key={policy.id}
@@ -390,17 +406,14 @@ export default function DashboardPage() {
 
                           <div className="mb-4">
                             <p className="text-xs text-gray-500 mb-1">Coverage</p>
-                            <p className="text-sm text-gray-700">
-                              {policy.coverage_description}
-                            </p>
+                            <p className="text-sm text-gray-700">{policy.coverage_description}</p>
                           </div>
 
                           {isExpiringSoon && (
                             <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 mb-4">
                               <Clock size={16} />
                               <span>
-                                This policy expires in{' '}
-                                <strong>{daysLeft} days</strong>. Contact us for renewal.
+                                This policy expires in <strong>{daysLeft} days</strong>. Contact us for renewal.
                               </span>
                             </div>
                           )}
@@ -424,8 +437,8 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Claims section */}
-              <div className="bg-white rounded-2xl shadow-md p-8">
+              {/* Claims */}
+              <div className="bg-white rounded-2xl shadow-md p-8 mb-6">
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                   <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                     <FileText className="text-[#dc2626]" size={24} />
@@ -447,12 +460,9 @@ export default function DashboardPage() {
                 ) : claims.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
                     <FileText className="text-gray-300 mx-auto mb-4" size={56} />
-                    <h3 className="text-lg font-bold text-gray-700 mb-2">
-                      No claims filed
-                    </h3>
+                    <h3 className="text-lg font-bold text-gray-700 mb-2">No claims filed</h3>
                     <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
-                      You haven&apos;t filed any claims yet. If you need to file
-                      one, our team is here to help.
+                      You haven&apos;t filed any claims yet.
                     </p>
                     <Link
                       href="/claim"
@@ -513,9 +523,7 @@ export default function DashboardPage() {
                         {claim.incident_description && (
                           <div className="mb-4">
                             <p className="text-xs text-gray-500 mb-1">Incident</p>
-                            <p className="text-sm text-gray-700">
-                              {claim.incident_description}
-                            </p>
+                            <p className="text-sm text-gray-700">{claim.incident_description}</p>
                           </div>
                         )}
 
@@ -534,6 +542,101 @@ export default function DashboardPage() {
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+
+              {/* Payments */}
+              <div className="bg-white rounded-2xl shadow-md p-8">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="text-[#1e3a8a]" size={24} />
+                    Payment History
+                  </h2>
+                  <Link
+                    href="/pay"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white text-sm font-semibold rounded-full transition"
+                  >
+                    <Plus size={16} />
+                    Make a Payment
+                  </Link>
+                </div>
+
+                {loadingPayments ? (
+                  <div className="text-center py-12">
+                    <div className="w-8 h-8 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin mx-auto" />
+                  </div>
+                ) : payments.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
+                    <CreditCard className="text-gray-300 mx-auto mb-4" size={56} />
+                    <h3 className="text-lg font-bold text-gray-700 mb-2">No payments yet</h3>
+                    <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+                      Your payment history will appear here once you make a payment.
+                    </p>
+                    <Link
+                      href="/pay"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold rounded-full transition"
+                    >
+                      How to Pay
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                      <div className="text-xs text-blue-700 uppercase font-semibold mb-1">
+                        Total Paid
+                      </div>
+                      <div className="text-2xl font-bold text-[#1e3a8a]">
+                        {formatKES(totalPaid)}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {payments.map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="border border-gray-200 rounded-xl p-4 hover:border-[#1e3a8a] transition"
+                        >
+                          <div className="flex items-center justify-between flex-wrap gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+                                <CreditCard className="text-green-600" size={18} />
+                              </div>
+                              <div>
+                                <div className="font-bold text-gray-900">
+                                  {formatKES(Number(payment.amount), payment.currency)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {payment.method.toUpperCase()}
+                                  {payment.reference && ` · ${payment.reference}`}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-gray-500">
+                                {formatDate(payment.paid_at)}
+                              </div>
+                              <span
+                                className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  payment.status === 'completed'
+                                    ? 'bg-green-50 text-green-700'
+                                    : payment.status === 'pending'
+                                    ? 'bg-yellow-50 text-yellow-700'
+                                    : 'bg-red-50 text-red-700'
+                                }`}
+                              >
+                                {payment.status}
+                              </span>
+                            </div>
+                          </div>
+                          {payment.policy && (
+                            <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600">
+                              Policy: <span className="font-mono">{payment.policy.policy_number}</span> ({payment.policy.policy_type})
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
