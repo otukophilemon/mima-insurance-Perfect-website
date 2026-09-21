@@ -19,6 +19,7 @@ import {
   AlertCircle,
   TrendingUp,
   ShieldCheck,
+  Mail,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: '/admin/claims', label: 'Claims', icon: AlertCircle },
   { href: '/admin/quotes', label: 'Quotes', icon: TrendingUp },
   { href: '/admin/users', label: 'Clients', icon: Users },
+  { href: '/admin/contacts', label: 'Contacts', icon: Mail },
   { href: '/admin/admins', label: 'Admins', icon: ShieldCheck },
 ];
 
