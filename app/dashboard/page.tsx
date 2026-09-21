@@ -576,7 +576,13 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                <div className="border-t border-gray-100 mt-6 pt-6">
+                <div className="border-t border-gray-100 mt-6 pt-6 space-y-2">
+                  <Link
+                    href="/profile"
+                    className="block w-full text-center px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold rounded-full text-sm transition"
+                  >
+                    Edit My Profile
+                  </Link>
                   <Link
                     href="/contact"
                     className="block w-full text-center px-4 py-2 border-2 border-gray-200 hover:border-[#1e3a8a] hover:text-[#1e3a8a] text-gray-700 font-semibold rounded-full text-sm transition"
