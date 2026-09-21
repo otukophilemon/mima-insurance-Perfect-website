@@ -44,6 +44,11 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [badges, setBadges] = useState<{
+    claims: number;
+    quotes: number;
+    contacts: number;
+  }>({ claims: 0, quotes: 0, contacts: 0 });
 
   useEffect(() => {
     const load = async () => {
@@ -54,7 +59,37 @@ export default function AdminLayout({
     load();
   }, []);
 
-    const handleLogout = async () => {
+  // Fetch unread badge counts (refresh every 60s + on route change)
+  useEffect(() => {
+    const loadBadges = async () => {
+      try {
+        const res = await fetch('/api/admin/stats');
+        if (!res.ok) return;
+        const data = await res.json();
+        setBadges({
+          claims: data.claims?.new || 0,
+          quotes: data.quotes?.new || 0,
+          contacts: data.contacts?.unread || 0,
+        });
+      } catch {
+        // Silent fail — badges are non-critical
+      }
+    };
+
+    loadBadges();
+    const interval = setInterval(loadBadges, 60000);
+    return () => clearInterval(interval);
+  }, [pathname]);
+
+  // Helper: get badge count for a nav item
+  const getBadgeCount = (href: string): number => {
+    if (href === '/admin/claims') return badges.claims;
+    if (href === '/admin/quotes') return badges.quotes;
+    if (href === '/admin/contacts') return badges.contacts;
+    return 0;
+  };
+
+  const handleLogout = async () => {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('mima_user_info');
     }
@@ -94,6 +129,7 @@ export default function AdminLayout({
               item.href === '/admin'
                 ? pathname === '/admin'
                 : pathname.startsWith(item.href);
+            const badgeCount = getBadgeCount(item.href);
             return (
               <Link
                 key={item.href}
@@ -105,7 +141,18 @@ export default function AdminLayout({
                 }`}
               >
                 <Icon size={18} />
-                <span className="font-medium text-sm">{item.label}</span>
+                <span className="font-medium text-sm flex-1">{item.label}</span>
+                {badgeCount > 0 && (
+                  <span
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center ${
+                      isActive
+                        ? 'bg-white text-[#dc2626]'
+                        : 'bg-[#dc2626] text-white'
+                    }`}
+                  >
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -168,6 +215,7 @@ export default function AdminLayout({
             <nav className="flex-1 p-4 space-y-1">
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
+                const badgeCount = getBadgeCount(item.href);
                 return (
                   <Link
                     key={item.href}
@@ -176,7 +224,14 @@ export default function AdminLayout({
                     className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10 transition-colors"
                   >
                     <Icon size={18} />
-                    <span className="font-medium text-sm">{item.label}</span>
+                    <span className="font-medium text-sm flex-1">
+                      {item.label}
+                    </span>
+                    {badgeCount > 0 && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center bg-[#dc2626] text-white">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
