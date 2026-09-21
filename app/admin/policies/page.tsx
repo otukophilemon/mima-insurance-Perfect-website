@@ -1,7 +1,8 @@
 ﻿// app/admin/policies/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   Trash2,
@@ -10,6 +11,7 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  ArrowRight,
 } from 'lucide-react';
 
 interface Policy {
@@ -51,9 +53,13 @@ const EMPTY_FORM = {
   start_date: '',
   expiry_date: '',
   notes: '',
+  from_quote_id: '',
 };
 
-export default function AdminPoliciesPage() {
+function AdminPoliciesPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -61,6 +67,11 @@ export default function AdminPoliciesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [linkedQuote, setLinkedQuote] = useState<{
+    id: number;
+    full_name: string;
+    insurance_type: string;
+  } | null>(null);
 
   const loadPolicies = async () => {
     try {
@@ -79,6 +90,68 @@ export default function AdminPoliciesPage() {
   useEffect(() => {
     loadPolicies();
   }, []);
+
+  // Handle "?from_quote=<id>" pre-fill
+  useEffect(() => {
+    const quoteId = searchParams.get('from_quote');
+    if (!quoteId) return;
+
+    const prefill = async () => {
+      try {
+        const res = await fetch(`/api/admin/quotes/${quoteId}`);
+        if (!res.ok) throw new Error('Quote not found');
+        const data = await res.json();
+        const quote = data.quote;
+
+        if (quote.status === 'converted') {
+          setMessage({
+            type: 'error',
+            text: 'This quote has already been converted to a policy.',
+          });
+          return;
+        }
+
+        // Fuzzy-match the quote's insurance_type to a POLICY_TYPES entry
+        const normalizedQuote = quote.insurance_type
+          .toLowerCase()
+          .replace(/\s|-/g, '');
+        const matchedType =
+          POLICY_TYPES.find(
+            (t) => t.toLowerCase().replace(/\s|-/g, '') === normalizedQuote
+          ) || 'Motor';
+
+        setFormData({
+          ...EMPTY_FORM,
+          client_email: quote.email || '',
+          policy_type: matchedType,
+          coverage_description: quote.details || '',
+          from_quote_id: String(quote.id),
+        });
+
+        setLinkedQuote({
+          id: quote.id,
+          full_name: quote.full_name,
+          insurance_type: quote.insurance_type,
+        });
+
+        setShowForm(true);
+
+        setMessage({
+          type: 'success',
+          text: `Pre-filled from quote #${quote.id} (${quote.full_name}). Complete the policy number, premium, and dates.`,
+        });
+      } catch (err) {
+        console.error('Pre-fill error:', err);
+        setMessage({
+          type: 'error',
+          text: 'Could not load the quote to convert.',
+        });
+      }
+    };
+
+    prefill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -101,10 +174,40 @@ export default function AdminPoliciesPage() {
 
       if (!res.ok) throw new Error(data.error || 'Failed to create policy');
 
-      setMessage({ type: 'success', text: 'Policy created successfully!' });
+      // If this policy came from a quote, mark the quote as converted
+      if (formData.from_quote_id) {
+        try {
+          const quoteRes = await fetch(
+            `/api/admin/quotes/${formData.from_quote_id}`,
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'converted' }),
+            }
+          );
+          if (!quoteRes.ok) {
+            console.warn('Policy created but quote status update failed');
+          }
+        } catch (quoteErr) {
+          console.warn('Quote update error:', quoteErr);
+        }
+      }
+
+      setMessage({
+        type: 'success',
+        text: formData.from_quote_id
+          ? `Policy created! Quote #${formData.from_quote_id} marked as converted and client notified.`
+          : 'Policy created successfully!',
+      });
       setFormData(EMPTY_FORM);
+      setLinkedQuote(null);
       setShowForm(false);
       loadPolicies();
+
+      // Clean the URL so refreshing doesn't re-trigger the pre-fill
+      if (searchParams.get('from_quote')) {
+        router.replace('/admin/policies');
+      }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : 'Failed to create policy';
       setMessage({ type: 'error', text: errMsg });
@@ -126,6 +229,15 @@ export default function AdminPoliciesPage() {
       setMessage({ type: 'error', text: 'Failed to delete' });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleCancelForm = () => {
+    setShowForm(false);
+    setFormData(EMPTY_FORM);
+    setLinkedQuote(null);
+    if (searchParams.get('from_quote')) {
+      router.replace('/admin/policies');
     }
   };
 
@@ -154,7 +266,13 @@ export default function AdminPoliciesPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              handleCancelForm();
+            } else {
+              setShowForm(true);
+            }
+          }}
           className="inline-flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold rounded-full transition-all shadow-lg"
         >
           {showForm ? <X size={18} /> : <Plus size={18} />}
@@ -180,10 +298,32 @@ export default function AdminPoliciesPage() {
         </div>
       )}
 
-      {/* Add Policy Form */}
+      {/* Add / Convert Form */}
       {showForm && (
         <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 mb-8 border-t-4 border-[#dc2626]">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">New Policy</h2>
+          {linkedQuote && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2 text-sm text-green-900">
+                <ArrowRight size={16} className="flex-shrink-0" />
+                <span>
+                  <strong>Converting quote #{linkedQuote.id}</strong> from{' '}
+                  {linkedQuote.full_name} ({linkedQuote.insurance_type})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelForm}
+                className="text-xs font-semibold text-green-800 hover:underline"
+              >
+                Cancel conversion
+              </button>
+            </div>
+          )}
+
+          <h2 className="text-xl font-bold text-gray-900 mb-6">
+            {linkedQuote ? 'Convert Quote to Policy' : 'New Policy'}
+          </h2>
+
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid md:grid-cols-2 gap-5">
               {/* Client Email */}
@@ -335,16 +475,13 @@ export default function AdminPoliciesPage() {
                 ) : (
                   <>
                     <Plus size={18} />
-                    Create Policy
+                    {linkedQuote ? 'Convert to Policy' : 'Create Policy'}
                   </>
                 )}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setFormData(EMPTY_FORM);
-                }}
+                onClick={handleCancelForm}
                 className="px-8 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-full hover:bg-gray-50 transition"
               >
                 Cancel
@@ -465,5 +602,19 @@ export default function AdminPoliciesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminPoliciesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      }
+    >
+      <AdminPoliciesPageInner />
+    </Suspense>
   );
 }

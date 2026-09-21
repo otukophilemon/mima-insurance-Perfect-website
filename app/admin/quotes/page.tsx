@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   FileText,
   Search,
@@ -17,6 +18,7 @@ import {
   Clock,
   TrendingUp,
   Ban,
+  ArrowRight,
 } from 'lucide-react';
 
 interface Quote {
@@ -75,6 +77,7 @@ function formatInsuranceType(type: string): string {
 }
 
 export default function AdminQuotesPage() {
+  const router = useRouter();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [filteredQuotes, setFilteredQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,6 +153,18 @@ export default function AdminQuotesPage() {
     } finally {
       setUpdatingStatus(false);
     }
+  };
+
+  // 👇 NEW: Convert quote to policy
+  const handleConvertToPolicy = (quote: Quote) => {
+    if (
+      !confirm(
+        `Convert this ${formatInsuranceType(quote.insurance_type)} quote into a policy?\n\nYou'll be taken to the policy form with client details pre-filled.`
+      )
+    ) {
+      return;
+    }
+    router.push(`/admin/policies?from_quote=${quote.id}`);
   };
 
   const handleDelete = async (id: number) => {
@@ -578,6 +593,15 @@ export default function AdminQuotesPage() {
 
             {/* Modal Footer */}
             <div className="p-6 border-t border-gray-100 flex gap-3 justify-end flex-wrap">
+              {selectedQuote.status !== 'converted' && (
+                <button
+                  onClick={() => handleConvertToPolicy(selectedQuote)}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-full transition"
+                >
+                  <ArrowRight size={16} />
+                  Convert to Policy
+                </button>
+              )}
               <a
                 href={`mailto:${selectedQuote.email}?subject=Your ${formatInsuranceType(selectedQuote.insurance_type)} Quote from MIMA`}
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#1e3a8a] hover:bg-[#1e40af] text-white font-semibold rounded-full transition"
