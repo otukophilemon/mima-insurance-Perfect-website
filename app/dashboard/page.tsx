@@ -40,12 +40,26 @@ interface Policy {
   created_at: string;
 }
 
+interface Claim {
+  id: number;
+  tracking_number: string;
+  claim_type: string;
+  incident_date: string;
+  incident_description: string;
+  estimated_value: string;
+  policy_number: string;
+  status: string;
+  created_at: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [policies, setPolicies] = useState<Policy[]>([]);
+  const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
+  const [loadingClaims, setLoadingClaims] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
@@ -97,10 +111,31 @@ export default function DashboardPage() {
     }
   }, [loading, user]);
 
-    const handleLogout = async () => {
+  useEffect(() => {
+    const loadClaims = async () => {
+      try {
+        const res = await fetch('/api/client/claims');
+        const data = await res.json();
+        if (res.ok) {
+          setClaims(data.claims || []);
+        } else {
+          console.error('Failed to load claims:', data.error);
+        }
+      } catch (error) {
+        console.error('Failed to fetch claims:', error);
+      } finally {
+        setLoadingClaims(false);
+      }
+    };
+
+    if (!loading && user) {
+      loadClaims();
+    }
+  }, [loading, user]);
+
+  const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      // Clear cached user info
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('mima_user_info');
       }
@@ -139,6 +174,31 @@ export default function DashboardPage() {
         return 'bg-blue-50 text-blue-700 border-blue-200';
     }
   };
+
+  const getClaimStatusColor = (status: string) => {
+    const s = status?.toLowerCase().replace(/\s+/g, '_');
+    switch (s) {
+      case 'submitted':
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'under_review':
+        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+      case 'approved':
+        return 'bg-green-50 text-green-700 border-green-200';
+      case 'paid':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'rejected':
+      case 'declined':
+        return 'bg-red-50 text-red-700 border-red-200';
+      default:
+        return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
+  };
+
+  const formatClaimType = (type: string) =>
+    type
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
 
   const getDaysUntilExpiry = (expiryDate: string) => {
     const now = new Date();
@@ -236,8 +296,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Left: Policies */}
+            {/* Left: Policies + Claims */}
             <div className="lg:col-span-2">
+              {/* Policies */}
               <div className="bg-white rounded-2xl shadow-md p-8 mb-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -258,7 +319,6 @@ export default function DashboardPage() {
                     <div className="w-8 h-8 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin mx-auto" />
                   </div>
                 ) : policies.length === 0 ? (
-                  // Empty state
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
                     <Shield className="text-gray-300 mx-auto mb-4" size={56} />
                     <h3 className="text-lg font-bold text-gray-700 mb-2">
@@ -276,7 +336,6 @@ export default function DashboardPage() {
                     </Link>
                   </div>
                 ) : (
-                  // Policies list
                   <div className="space-y-4">
                     {policies.map((policy) => {
                       const daysLeft = getDaysUntilExpiry(policy.expiry_date);
@@ -287,7 +346,6 @@ export default function DashboardPage() {
                           key={policy.id}
                           className="border border-gray-200 rounded-2xl p-6 hover:border-[#1e3a8a] hover:shadow-md transition-all"
                         >
-                          {/* Top: Type + Status */}
                           <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
                             <div className="flex items-center gap-3">
                               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1e3a8a] to-[#2563eb] flex items-center justify-center">
@@ -309,7 +367,6 @@ export default function DashboardPage() {
                             </span>
                           </div>
 
-                          {/* Middle: Details grid */}
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4 border-t border-b border-gray-100 my-4">
                             <div>
                               <p className="text-xs text-gray-500 mb-1">Annual Premium</p>
@@ -331,7 +388,6 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          {/* Coverage */}
                           <div className="mb-4">
                             <p className="text-xs text-gray-500 mb-1">Coverage</p>
                             <p className="text-sm text-gray-700">
@@ -339,7 +395,6 @@ export default function DashboardPage() {
                             </p>
                           </div>
 
-                          {/* Expiry warning */}
                           {isExpiringSoon && (
                             <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 mb-4">
                               <Clock size={16} />
@@ -350,7 +405,6 @@ export default function DashboardPage() {
                             </div>
                           )}
 
-                          {/* Footer */}
                           <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-gray-100">
                             <div className="flex items-center gap-2 text-xs text-gray-500">
                               <Calendar size={14} />
@@ -372,27 +426,115 @@ export default function DashboardPage() {
 
               {/* Claims section */}
               <div className="bg-white rounded-2xl shadow-md p-8">
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2 mb-6">
-                  <FileText className="text-[#dc2626]" size={24} />
-                  My Claims
-                </h2>
-
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
-                  <FileText className="text-gray-300 mx-auto mb-4" size={56} />
-                  <h3 className="text-lg font-bold text-gray-700 mb-2">
-                    No claims filed
-                  </h3>
-                  <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
-                    You haven&apos;t filed any claims. If you need to file one,
-                    our team is here to help.
-                  </p>
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <FileText className="text-[#dc2626]" size={24} />
+                    My Claims
+                  </h2>
                   <Link
                     href="/claim"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold rounded-full transition"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-semibold rounded-full transition"
                   >
+                    <Plus size={16} />
                     File a Claim
                   </Link>
                 </div>
+
+                {loadingClaims ? (
+                  <div className="text-center py-12">
+                    <div className="w-8 h-8 border-4 border-[#dc2626] border-t-transparent rounded-full animate-spin mx-auto" />
+                  </div>
+                ) : claims.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
+                    <FileText className="text-gray-300 mx-auto mb-4" size={56} />
+                    <h3 className="text-lg font-bold text-gray-700 mb-2">
+                      No claims filed
+                    </h3>
+                    <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+                      You haven&apos;t filed any claims yet. If you need to file
+                      one, our team is here to help.
+                    </p>
+                    <Link
+                      href="/claim"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold rounded-full transition"
+                    >
+                      File a Claim
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {claims.map((claim) => (
+                      <div
+                        key={claim.id}
+                        className="border border-gray-200 rounded-2xl p-6 hover:border-[#dc2626] hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#b91c1c] flex items-center justify-center">
+                              <FileText className="text-white" size={24} />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg text-gray-900">
+                                {formatClaimType(claim.claim_type)}
+                              </h3>
+                              <p className="text-xs text-gray-500 font-mono">
+                                {claim.tracking_number}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${getClaimStatusColor(claim.status)}`}
+                          >
+                            {claim.status.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4 border-t border-b border-gray-100 my-4">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Incident Date</p>
+                            <p className="font-medium text-gray-900 text-sm">
+                              {formatDate(claim.incident_date)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Estimated Value</p>
+                            <p className="font-medium text-gray-900 text-sm">
+                              KES {claim.estimated_value || '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Policy No.</p>
+                            <p className="font-mono text-gray-900 text-sm">
+                              {claim.policy_number || '—'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {claim.incident_description && (
+                          <div className="mb-4">
+                            <p className="text-xs text-gray-500 mb-1">Incident</p>
+                            <p className="text-sm text-gray-700">
+                              {claim.incident_description}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <Calendar size={14} />
+                            Filed on {formatDate(claim.created_at)}
+                          </div>
+                          <Link
+                            href={`/track?number=${encodeURIComponent(claim.tracking_number)}`}
+                            className="text-sm font-semibold text-[#dc2626] hover:text-[#b91c1c] transition"
+                          >
+                            Track this claim →
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

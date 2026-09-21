@@ -80,7 +80,7 @@ export default function TrackPage() {
   const currentStep = claim ? getStepIndex(claim.status) : -1;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen w-full bg-gray-50">
       {/* Hero */}
       <div className="bg-[#0f172a] text-white py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
