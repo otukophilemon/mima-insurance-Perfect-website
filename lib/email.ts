@@ -267,3 +267,229 @@ export async function sendContactAutoReply(data: {
     throw error;
   }
 }
+
+// ============================================
+// STATUS UPDATE EMAILS (Triggered by admin actions)
+// ============================================
+
+const CLAIM_STATUS_LABELS: Record<string, { label: string; color: string; message: string }> = {
+  submitted: {
+    label: 'Submitted',
+    color: '#2563eb',
+    message: 'Your claim has been received and is awaiting review.',
+  },
+  under_review: {
+    label: 'Under Review',
+    color: '#f59e0b',
+    message: 'Our claims team is currently reviewing your claim.',
+  },
+  approved: {
+    label: 'Approved',
+    color: '#16a34a',
+    message: 'Your claim has been approved. We will process payment shortly.',
+  },
+  paid: {
+    label: 'Paid',
+    color: '#059669',
+    message: 'Your claim payment has been processed and sent.',
+  },
+  rejected: {
+    label: 'Rejected',
+    color: '#dc2626',
+    message: 'Unfortunately, your claim could not be approved. Please contact us for details.',
+  },
+  declined: {
+    label: 'Declined',
+    color: '#dc2626',
+    message: 'Unfortunately, your claim was declined. Please contact us for details.',
+  },
+};
+
+const QUOTE_STATUS_LABELS: Record<string, { label: string; color: string; message: string }> = {
+  new: {
+    label: 'New Request',
+    color: '#3b82f6',
+    message: 'Your quote request has been received. Our team will contact you shortly.',
+  },
+  pending: {
+    label: 'Pending',
+    color: '#f59e0b',
+    message: 'Your quote request is being processed.',
+  },
+  contacted: {
+    label: 'Contacted',
+    color: '#2563eb',
+    message: 'Our broker has reached out to you with a personalized quote.',
+  },
+  quoted: {
+    label: 'Quoted',
+    color: '#2563eb',
+    message: 'Your personalized quote is ready. Please contact us to proceed.',
+  },
+  converted: {
+    label: 'Converted',
+    color: '#16a34a',
+    message: 'Your quote has been converted to a policy. Welcome to MIMA!',
+  },
+  closed: {
+    label: 'Closed',
+    color: '#6b7280',
+    message: 'This quote request has been closed.',
+  },
+  declined: {
+    label: 'Declined',
+    color: '#dc2626',
+    message: 'Your quote request was declined. Please contact us for more options.',
+  },
+};
+
+export async function sendClaimStatusUpdate(data: {
+  email: string;
+  full_name: string;
+  tracking_number: string;
+  claim_type: string;
+  new_status: string;
+}) {
+  const info =
+    CLAIM_STATUS_LABELS[data.new_status.toLowerCase()] || {
+      label: data.new_status,
+      color: '#1e3a8a',
+      message: 'Your claim status has been updated.',
+    };
+
+  try {
+    await sgMail.send({
+      to: data.email,
+      from: FROM_EMAIL,
+      subject: `Claim Update: ${data.tracking_number} — ${info.label}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <div style="background: #0f172a; color: white; padding: 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 22px;">Claim Status Update</h1>
+            <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.8;">MIMA Insurance Brokers</p>
+          </div>
+
+          <div style="padding: 32px 24px;">
+            <p style="font-size: 15px;">Dear ${data.full_name},</p>
+            <p style="font-size: 15px;">There's an update on your claim:</p>
+
+            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center;">
+              <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+                Tracking Number
+              </div>
+              <div style="font-family: monospace; font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 16px;">
+                ${data.tracking_number}
+              </div>
+
+              <div style="display: inline-block; background: ${info.color}; color: white; padding: 8px 20px; border-radius: 999px; font-weight: 700; font-size: 14px;">
+                ${info.label}
+              </div>
+            </div>
+
+            <div style="background: #eff6ff; border-left: 4px solid #1e3a8a; padding: 16px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #1e3a8a;">
+                <strong>What this means:</strong><br>
+                ${info.message}
+              </p>
+            </div>
+
+            <p style="font-size: 14px; color: #374151;">
+              <strong>Claim Type:</strong> ${data.claim_type}
+            </p>
+
+            <div style="text-align: center; margin: 32px 0 16px 0;">
+              <a href="https://mima-insurance-perfect-website-ashen.vercel.app/track?number=${encodeURIComponent(data.tracking_number)}"
+                 style="display: inline-block; background: #dc2626; color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: 700; font-size: 14px;">
+                Track This Claim
+              </a>
+            </div>
+
+            <p style="font-size: 13px; color: #6b7280; margin-top: 24px;">
+              If you have any questions, call us on <strong>0116 000 073</strong> (Nairobi) or <strong>0714 660 000</strong> (Nakuru), or reply to this email.
+            </p>
+          </div>
+
+          <div style="background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280;">
+            © ${new Date().getFullYear()} MIMA Insurance Brokers Limited<br>
+            Nairobi · Nakuru · Kenya
+          </div>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error('SendGrid claim status update error:', error);
+    throw error;
+  }
+}
+
+export async function sendQuoteStatusUpdate(data: {
+  email: string;
+  full_name: string;
+  insurance_type: string;
+  new_status: string;
+  quote_id: number;
+}) {
+  const info =
+    QUOTE_STATUS_LABELS[data.new_status.toLowerCase()] || {
+      label: data.new_status,
+      color: '#1e3a8a',
+      message: 'Your quote status has been updated.',
+    };
+
+  try {
+    await sgMail.send({
+      to: data.email,
+      from: FROM_EMAIL,
+      subject: `Quote Update: ${data.insurance_type} — ${info.label}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <div style="background: #0f172a; color: white; padding: 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 22px;">Quote Status Update</h1>
+            <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.8;">MIMA Insurance Brokers</p>
+          </div>
+
+          <div style="padding: 32px 24px;">
+            <p style="font-size: 15px;">Dear ${data.full_name},</p>
+            <p style="font-size: 15px;">There's an update on your <strong>${data.insurance_type}</strong> quote request:</p>
+
+            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center;">
+              <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+                Quote Reference #${data.quote_id}
+              </div>
+
+              <div style="display: inline-block; background: ${info.color}; color: white; padding: 8px 20px; border-radius: 999px; font-weight: 700; font-size: 14px;">
+                ${info.label}
+              </div>
+            </div>
+
+            <div style="background: #eff6ff; border-left: 4px solid #1e3a8a; padding: 16px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #1e3a8a;">
+                <strong>What this means:</strong><br>
+                ${info.message}
+              </p>
+            </div>
+
+            <div style="text-align: center; margin: 32px 0 16px 0;">
+              <a href="https://mima-insurance-perfect-website-ashen.vercel.app/contact"
+                 style="display: inline-block; background: #1e3a8a; color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: 700; font-size: 14px;">
+                Contact Your Broker
+              </a>
+            </div>
+
+            <p style="font-size: 13px; color: #6b7280; margin-top: 24px;">
+              Questions? Call us on <strong>0116 000 073</strong> (Nairobi) or <strong>0714 660 000</strong> (Nakuru), or reply to this email.
+            </p>
+          </div>
+
+          <div style="background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280;">
+            © ${new Date().getFullYear()} MIMA Insurance Brokers Limited<br>
+            Nairobi · Nakuru · Kenya
+          </div>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error('SendGrid quote status update error:', error);
+    throw error;
+  }
+}
