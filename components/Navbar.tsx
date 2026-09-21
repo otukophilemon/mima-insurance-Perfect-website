@@ -17,6 +17,8 @@ const NAV_LINKS = [
   { href: '/blog', label: 'Blog' },
   { href: '/contact', label: 'Contact' },
   { href: '/claim', label: 'Claims' },
+  { href: '/track', label: 'Track Claim' },
+  { href: '/pay', label: 'Pay Premium' },
 ];
 
 export default function Navbar() {

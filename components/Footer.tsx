@@ -12,6 +12,7 @@ const QUICK_LINKS = [
   { href: '/blog', label: 'Blog' },
   { href: '/quote', label: 'Get a Quote' },
   { href: '/claim', label: 'File a Claim' },
+  { href: '/track', label: 'Track Claim' },
   { href: '/pay', label: 'Pay Premium' },
   { href: '/contact', label: 'Contact' },
 ];
@@ -165,6 +166,12 @@ export default function Footer() {
             © {new Date().getFullYear()} {COMPANY.legalName}. All rights reserved.
           </p>
                     <div className="flex flex-wrap gap-6">
+                      <Link
+    href="/track"
+    className="text-gray-500 hover:text-[#dc2626] transition-colors"
+  >
+    Track Claim
+  </Link>
             <Link
               href="/pay"
               className="text-gray-500 hover:text-[#dc2626] transition-colors"
