@@ -204,7 +204,7 @@ export default function AdminLayout({
             className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="relative w-64 bg-[#0f172a] text-white flex flex-col">
+                    <aside className="relative w-64 bg-[#0f172a] text-white flex flex-col">
             <div className="p-6 border-b border-white/10 flex items-center justify-between">
               <div className="font-bold">MIMA Admin</div>
               <button
@@ -214,7 +214,8 @@ export default function AdminLayout({
                 <X size={20} />
               </button>
             </div>
-            <nav className="flex-1 p-4 space-y-1">
+
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const badgeCount = getBadgeCount(item.href);
@@ -238,6 +239,35 @@ export default function AdminLayout({
                 );
               })}
             </nav>
+
+            {/* Mobile footer: Back to Site + email + Log Out */}
+            <div className="p-4 border-t border-white/10 space-y-3">
+              <Link
+                href="/"
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:bg-white/10 transition-colors text-sm"
+              >
+                <Home size={16} />
+                <span>Back to Site</span>
+              </Link>
+
+              {user && (
+                <div className="px-4 py-2 text-xs text-gray-400 truncate">
+                  {user.email}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setSidebarOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors text-sm"
+              >
+                <LogOut size={16} />
+                <span>Log Out</span>
+              </button>
+            </div>
           </aside>
         </div>
       )}
