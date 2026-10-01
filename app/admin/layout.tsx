@@ -20,7 +20,7 @@ import {
   TrendingUp,
   ShieldCheck,
   Mail,
-  CreditCard
+  CreditCard,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 
@@ -204,7 +204,7 @@ export default function AdminLayout({
             className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
-                    <aside className="relative w-64 bg-[#0f172a] text-white flex flex-col">
+          <aside className="relative w-64 bg-[#0f172a] text-white flex flex-col">
             <div className="p-6 border-b border-white/10 flex items-center justify-between">
               <div className="font-bold">MIMA Admin</div>
               <button
@@ -240,33 +240,16 @@ export default function AdminLayout({
               })}
             </nav>
 
-            {/* Mobile footer: Back to Site + email + Log Out */}
-            <div className="p-4 border-t border-white/10 space-y-3">
+            {/* Mobile footer: Back to Client Dashboard */}
+            <div className="p-4 border-t border-white/10">
               <Link
-                href="/"
+                href="/dashboard"
                 onClick={() => setSidebarOpen(false)}
-                className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:bg-white/10 transition-colors text-sm"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#1e3a8a] hover:bg-[#1e40af] text-white transition-colors text-sm font-semibold"
               >
-                <Home size={16} />
-                <span>Back to Site</span>
+                <LayoutDashboard size={16} />
+                <span>Back to Client Dashboard</span>
               </Link>
-
-              {user && (
-                <div className="px-4 py-2 text-xs text-gray-400 truncate">
-                  {user.email}
-                </div>
-              )}
-
-              <button
-                onClick={() => {
-                  setSidebarOpen(false);
-                  handleLogout();
-                }}
-                className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors text-sm"
-              >
-                <LogOut size={16} />
-                <span>Log Out</span>
-              </button>
             </div>
           </aside>
         </div>
