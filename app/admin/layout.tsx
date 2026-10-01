@@ -10,10 +10,8 @@ import {
   FileText,
   Users,
   LogOut,
-  Home,
   Menu,
   X,
-  Bell,
   BookOpen,
   UserCog,
   AlertCircle,
@@ -124,7 +122,7 @@ export default function AdminLayout({
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -160,13 +158,14 @@ export default function AdminLayout({
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/10 space-y-3">
+        {/* Desktop footer — same layout as mobile */}
+        <div className="p-4 border-t border-white/10 space-y-2">
           <Link
-            href="/"
-            className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:bg-white/10 transition-colors text-sm"
+            href="/dashboard"
+            className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-[#1e3a8a] hover:bg-[#1e40af] text-white transition-colors text-sm font-semibold"
           >
-            <Home size={16} />
-            <span>Back to Site</span>
+            <LayoutDashboard size={16} />
+            <span>Back to Client Dashboard</span>
           </Link>
 
           {user && (
@@ -240,16 +239,33 @@ export default function AdminLayout({
               })}
             </nav>
 
-            {/* Mobile footer: Back to Client Dashboard */}
-            <div className="p-4 border-t border-white/10">
+            {/* Mobile footer — same layout as desktop */}
+            <div className="p-4 border-t border-white/10 space-y-2">
               <Link
                 href="/dashboard"
                 onClick={() => setSidebarOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#1e3a8a] hover:bg-[#1e40af] text-white transition-colors text-sm font-semibold"
+                className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-[#1e3a8a] hover:bg-[#1e40af] text-white transition-colors text-sm font-semibold"
               >
                 <LayoutDashboard size={16} />
                 <span>Back to Client Dashboard</span>
               </Link>
+
+              {user && (
+                <div className="px-4 py-2 text-xs text-gray-400 truncate">
+                  {user.email}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setSidebarOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors text-sm"
+              >
+                <LogOut size={16} />
+                <span>Log Out</span>
+              </button>
             </div>
           </aside>
         </div>
