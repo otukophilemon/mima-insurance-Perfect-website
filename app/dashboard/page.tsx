@@ -17,6 +17,7 @@ import {
   Calendar,
   TrendingUp,
   CreditCard,
+  Download,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -418,17 +419,26 @@ export default function DashboardPage() {
                             </div>
                           )}
 
-                          <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-gray-100">
+                                                    <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-gray-100">
                             <div className="flex items-center gap-2 text-xs text-gray-500">
                               <Calendar size={14} />
                               Added on {formatDate(policy.created_at)}
                             </div>
-                            <Link
-                              href="/contact"
-                              className="text-sm font-semibold text-[#dc2626] hover:text-[#b91c1c] transition"
-                            >
-                              Contact Support →
-                            </Link>
+                            <div className="flex items-center gap-3">
+                              <a
+                                href={`/api/client/policies/${policy.id}/pdf`}
+                                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1e3a8a] hover:text-[#1e40af] transition"
+                      >
+                                <Download size={14} />
+                                Download PDF
+                              </a>
+                              <Link
+                                href="/contact"
+                                className="text-sm font-semibold text-[#dc2626] hover:text-[#b91c1c] transition"
+                              >
+                                Contact Support →
+                              </Link>
+                            </div>
                           </div>
                         </div>
                       );
