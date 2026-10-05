@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase-server';
+import { logAdminAction } from '@/lib/audit';
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -84,6 +85,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: policyError.message }, { status: 500 });
     }
 
+    // 📝 Audit log
+    await logAdminAction({
+      action: 'create_policy',
+      entity_type: 'policy',
+      entity_id: policy.id,
+      details: {
+        policy_number: policy.policy_number,
+        policy_type: policy.policy_type,
+        client_email: clientProfile.email,
+        annual_premium: policy.annual_premium,
+      },
+    });
+
     return NextResponse.json({ success: true, policy }, { status: 201 });
   } catch (error) {
     console.error('POST API error:', error);
@@ -101,7 +115,6 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Fetch all policies
     const { data: policies, error: policiesError } = await adminSupabase
       .from('policies')
       .select('*')
@@ -112,7 +125,6 @@ export async function GET() {
       return NextResponse.json({ error: policiesError.message }, { status: 500 });
     }
 
-    // Fetch all user profiles separately
     const { data: profiles, error: profilesError } = await adminSupabase
       .from('user_profiles')
       .select('id, email, full_name');
@@ -121,7 +133,6 @@ export async function GET() {
       console.error('Profiles fetch error:', profilesError);
     }
 
-    // Merge profiles into policies
     const profileMap = new Map(
       (profiles || []).map((p) => [
         p.id,

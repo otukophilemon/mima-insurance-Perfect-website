@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase-server';
+import { logAdminAction } from '@/lib/audit';
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,7 +13,6 @@ async function verifyAdmin() {
   try {
     const supabase = await createServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-
     if (authError || !user) return null;
 
     const { data: profile } = await adminSupabase
@@ -28,10 +28,6 @@ async function verifyAdmin() {
   }
 }
 
-/**
- * GET /api/admin/admins
- * Returns all users with their admin status.
- */
 export async function GET() {
   try {
     const admin = await verifyAdmin();
@@ -57,11 +53,6 @@ export async function GET() {
   }
 }
 
-/**
- * PUT /api/admin/admins
- * Update a user's admin status.
- * Body: { userId: string, isAdmin: boolean }
- */
 export async function PUT(request: Request) {
   try {
     const admin = await verifyAdmin();
@@ -96,6 +87,17 @@ export async function PUT(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // 📝 Audit log
+    await logAdminAction({
+      action: body.isAdmin ? 'promote_admin' : 'demote_admin',
+      entity_type: 'admin',
+      entity_id: body.userId,
+      details: {
+        target_email: updatedUser.email,
+        new_is_admin: body.isAdmin,
+      },
+    });
 
     return NextResponse.json({ success: true, user: updatedUser });
   } catch (error) {

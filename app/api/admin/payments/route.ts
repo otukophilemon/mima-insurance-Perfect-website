@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase-server';
+import { logAdminAction } from '@/lib/audit';
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,10 +28,6 @@ async function verifyAdmin() {
   }
 }
 
-/**
- * GET /api/admin/payments
- * List all payments with user + policy info.
- */
 export async function GET() {
   try {
     const admin = await verifyAdmin();
@@ -48,7 +45,6 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Fetch user profiles + policies for enrichment
     const userIds = [...new Set((payments || []).map((p) => p.user_id))];
     const policyIds = (payments || [])
       .map((p) => p.policy_id)
@@ -67,12 +63,8 @@ export async function GET() {
         : Promise.resolve({ data: [] as any[] }),
     ]);
 
-    const profileMap = new Map(
-      (profiles || []).map((p) => [p.id, p])
-    );
-    const policyMap = new Map(
-      (policies || []).map((p: any) => [p.id, p])
-    );
+    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+    const policyMap = new Map((policies || []).map((p: any) => [p.id, p]));
 
     const enriched = (payments || []).map((p) => ({
       ...p,
@@ -87,11 +79,6 @@ export async function GET() {
   }
 }
 
-/**
- * POST /api/admin/payments
- * Create a new payment record.
- * Body: { client_email, policy_id?, amount, method, reference?, status?, paid_at?, notes? }
- */
 export async function POST(request: Request) {
   try {
     const admin = await verifyAdmin();
@@ -108,7 +95,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Look up client by email
     const { data: client, error: clientError } = await adminSupabase
       .from('user_profiles')
       .select('id, email')
@@ -144,6 +130,19 @@ export async function POST(request: Request) {
       console.error('Payment insert error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // 📝 Audit log
+    await logAdminAction({
+      action: 'create_payment',
+      entity_type: 'payment',
+      entity_id: payment.id,
+      details: {
+        client_email: client.email,
+        amount: payment.amount,
+        method: payment.method,
+        reference: payment.reference,
+      },
+    });
 
     return NextResponse.json({ success: true, payment }, { status: 201 });
   } catch (error) {

@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase-server';
+import { logAdminAction } from '@/lib/audit';
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,6 +57,15 @@ export async function PUT(
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // 📝 Audit log
+    await logAdminAction({
+      action: 'update_payment',
+      entity_type: 'payment',
+      entity_id: id,
+      details: updates,
+    });
+
     return NextResponse.json({ success: true, payment });
   } catch (error) {
     console.error('PUT error:', error);
@@ -79,6 +89,14 @@ export async function DELETE(
       .eq('id', id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // 📝 Audit log
+    await logAdminAction({
+      action: 'delete_payment',
+      entity_type: 'payment',
+      entity_id: id,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('DELETE error:', error);

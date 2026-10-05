@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase-server';
+import { logAdminAction } from '@/lib/audit';
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,7 +13,6 @@ async function verifyAdmin() {
   try {
     const supabase = await createServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-
     if (authError || !user) return null;
 
     const { data: profile } = await adminSupabase
@@ -28,20 +28,13 @@ async function verifyAdmin() {
   }
 }
 
-/**
- * PUT /api/admin/contacts/[id]
- * Update a contact's status.
- * Body: { status: 'new' | 'read' | 'replied' }
- */
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await verifyAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+    if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
     const { id } = await params;
     const body = await request.json();
@@ -65,26 +58,28 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 📝 Audit log
+    await logAdminAction({
+      action: 'update_contact_status',
+      entity_type: 'contact',
+      entity_id: id,
+      details: { new_status: body.status },
+    });
+
     return NextResponse.json({ success: true, contact: updated });
   } catch (error) {
-    console.error('API error:', error);
+    console.error('PUT error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-/**
- * DELETE /api/admin/contacts/[id]
- * Delete a contact submission.
- */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await verifyAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+    if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
     const { id } = await params;
 
@@ -93,13 +88,18 @@ export async function DELETE(
       .delete()
       .eq('id', id);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // 📝 Audit log
+    await logAdminAction({
+      action: 'delete_contact',
+      entity_type: 'contact',
+      entity_id: id,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('API error:', error);
+    console.error('DELETE error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Mail,
   CreditCard,
+  Shield,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 import AdminCalculator from '@/components/AdminCalculators';
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: '/admin/users', label: 'Clients', icon: Users },
   { href: '/admin/contacts', label: 'Contacts', icon: Mail },
   { href: '/admin/admins', label: 'Admins', icon: ShieldCheck },
+  { href: '/admin/audit-log', label: 'Audit Log', icon: Shield },
 ];
 
 export default function AdminLayout({

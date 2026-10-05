@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase-server';
 import { sendQuoteStatusUpdate } from '@/lib/email';
+import { logAdminAction } from '@/lib/audit';
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,7 +14,6 @@ async function verifyAdmin() {
   try {
     const supabase = await createServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-
     if (authError || !user) return null;
 
     const { data: profile } = await adminSupabase
@@ -29,9 +29,6 @@ async function verifyAdmin() {
   }
 }
 
-/**
- * GET /api/admin/quotes/:id
- */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -61,10 +58,6 @@ export async function GET(
   }
 }
 
-/**
- * PUT /api/admin/quotes/:id
- * Update quote status + notify client by email.
- */
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -74,23 +67,16 @@ export async function PUT(
   try {
     const admin = await verifyAdmin();
     if (!admin) {
-      console.log('🔴 Admin verification failed');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const { id } = await params;
-    console.log('🔵 Quote ID:', id);
-
     const body = await request.json();
-    console.log('🔵 Request body:', body);
 
     if (!body.status) {
-      console.log('🔴 Missing status');
       return NextResponse.json({ error: 'Missing status' }, { status: 400 });
     }
 
-    // Fetch previous status
-    console.log('🔵 Fetching previous status...');
     const { data: previous, error: prevError } = await adminSupabase
       .from('quotes')
       .select('status')
@@ -98,10 +84,7 @@ export async function PUT(
       .maybeSingle();
 
     if (prevError) console.error('🔴 Error fetching previous:', prevError);
-    console.log('🔵 Previous status:', previous?.status);
 
-    // Update
-    console.log('🔵 Updating quote...');
     const { data: quote, error } = await adminSupabase
       .from('quotes')
       .update({ status: body.status })
@@ -116,14 +99,26 @@ export async function PUT(
 
     console.log('✅ Quote updated:', quote.id, '→', quote.status);
 
-    // Email — fully isolated
+    // 📝 Audit log
+    await logAdminAction({
+      action: 'update_quote_status',
+      entity_type: 'quote',
+      entity_id: quote.id,
+      details: {
+        insurance_type: quote.insurance_type,
+        full_name: quote.full_name,
+        old_status: previous?.status || 'unknown',
+        new_status: quote.status,
+      },
+    });
+
+    // Email — isolated
     if (
       quote &&
       previous?.status !== quote.status &&
       quote.email &&
       quote.full_name
     ) {
-      console.log('📧 Sending email to:', quote.email);
       try {
         await sendQuoteStatusUpdate({
           email: quote.email,
@@ -135,25 +130,13 @@ export async function PUT(
         console.log('✅ Email sent successfully');
       } catch (emailError: any) {
         console.error('❌ EMAIL FAILED — status was still updated');
-        console.error('❌ Error name:', emailError?.name);
-        console.error('❌ Error message:', emailError?.message);
         console.error('❌ Error details:', JSON.stringify(emailError?.response?.body || {}, null, 2));
       }
-    } else {
-      console.log('ℹ️ Skipped email. Reasons:');
-      console.log('   hasQuote:', !!quote);
-      console.log('   statusChanged:', previous?.status !== quote?.status);
-      console.log('   hasEmail:', !!quote?.email);
-      console.log('   hasName:', !!quote?.full_name);
     }
 
-    console.log('✅ PUT completed successfully');
     return NextResponse.json({ success: true, quote });
   } catch (error: any) {
-    console.error('🔴 UNCAUGHT ERROR in PUT:');
-    console.error('🔴 Error name:', error?.name);
-    console.error('🔴 Error message:', error?.message);
-    console.error('🔴 Error stack:', error?.stack);
+    console.error('🔴 UNCAUGHT ERROR in PUT:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error?.message },
       { status: 500 }
@@ -161,9 +144,6 @@ export async function PUT(
   }
 }
 
-/**
- * DELETE /api/admin/quotes/:id
- */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -184,6 +164,13 @@ export async function DELETE(
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // 📝 Audit log
+    await logAdminAction({
+      action: 'delete_quote',
+      entity_type: 'quote',
+      entity_id: id,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
