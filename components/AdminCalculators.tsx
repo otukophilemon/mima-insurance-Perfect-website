@@ -1,13 +1,12 @@
 // components/AdminCalculator.tsx
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Calculator,
   X,
   Car,
   Percent,
-  DollarSign,
   Delete,
 } from 'lucide-react';
 import {
@@ -40,7 +39,7 @@ export default function AdminCalculator() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-         className="fixed bottom-24 right-6 z-40 w-14 h-14 rounded-full bg-[#1e3a8a] hover:bg-[#1e40af] text-white shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-red-100 hover:bg-red-200 text-[#dc2626] border-2 border-red-200 hover:border-red-300 shadow-xl hover:shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
           title="Open Calculator (Esc to close when open)"
           aria-label="Open admin calculator"
         >
@@ -50,7 +49,7 @@ export default function AdminCalculator() {
 
       {/* ── Panel ────────────────────────────────────────── */}
       {open && (
-          <div className="fixed bottom-24 right-6 z-40 w-[380px] max-w-[calc(100vw-2rem)] ...">
+        <div className="fixed bottom-6 right-6 z-40 w-[380px] max-w-[calc(100vw-2rem)] bg-red-50 rounded-2xl shadow-2xl border border-red-200 overflow-hidden flex flex-col max-h-[85vh]">
           {/* Header */}
           <div className="bg-[#0f172a] text-white px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -67,7 +66,7 @@ export default function AdminCalculator() {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 bg-gray-50">
+          <div className="flex border-b border-red-200 bg-red-100">
             <TabButton
               active={activeTab === 'basic'}
               onClick={() => setActiveTab('basic')}
@@ -89,7 +88,7 @@ export default function AdminCalculator() {
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 bg-red-50">
             {activeTab === 'basic' && <BasicTab />}
             {activeTab === 'motor' && <MotorTab />}
             {activeTab === 'prorata' && <ProRataTab />}
@@ -121,7 +120,7 @@ function TabButton({
       className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition ${
         active
           ? 'text-[#1e3a8a] bg-white border-b-2 border-[#1e3a8a]'
-          : 'text-gray-500 hover:text-gray-700'
+          : 'text-red-700 hover:text-red-900 hover:bg-red-50'
       }`}
     >
       {icon}
@@ -245,7 +244,7 @@ function BasicTab() {
         {/* Row 5 */}
         <button
           onClick={() => handleDigit('0')}
-          className="col-span-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 rounded-xl transition"
+          className="col-span-2 bg-white hover:bg-gray-100 text-gray-900 font-bold py-3 rounded-xl transition border border-gray-200"
         >
           0
         </button>
@@ -268,11 +267,11 @@ function CalcBtn({
   variant?: 'default' | 'primary' | 'danger' | 'success' | 'secondary';
 }) {
   const styles = {
-    default: 'bg-gray-100 hover:bg-gray-200 text-gray-900',
+    default: 'bg-white hover:bg-gray-100 text-gray-900 border border-gray-200',
     primary: 'bg-[#1e3a8a] hover:bg-[#1e40af] text-white',
-    danger: 'bg-red-100 hover:bg-red-200 text-red-700',
+    danger: 'bg-red-100 hover:bg-red-200 text-red-700 border border-red-200',
     success: 'bg-green-500 hover:bg-green-600 text-white',
-    secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-700',
+    secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-700 border border-gray-300',
   };
   return (
     <button
@@ -318,7 +317,7 @@ function MotorTab() {
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-semibold text-gray-600 mb-1">
+        <label className="block text-xs font-semibold text-gray-700 mb-1">
           Vehicle Value (KES)
         </label>
         <input
@@ -326,13 +325,13 @@ function MotorTab() {
           value={vehicleValue}
           onChange={(e) => setVehicleValue(e.target.value)}
           placeholder="e.g. 1500000"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] bg-white"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
             Vehicle Age (yrs)
           </label>
           <input
@@ -340,12 +339,12 @@ function MotorTab() {
             value={vehicleAge}
             onChange={(e) => setVehicleAge(e.target.value)}
             placeholder="e.g. 3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] bg-white"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
             Type
           </label>
           <select
@@ -363,7 +362,7 @@ function MotorTab() {
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-gray-600 mb-1">
+        <label className="block text-xs font-semibold text-gray-700 mb-1">
           No Claim Discount
         </label>
         <select
@@ -452,7 +451,7 @@ function MotorTab() {
         </div>
       )}
 
-      <p className="text-[10px] text-gray-400 italic pt-2">
+      <p className="text-[10px] text-gray-500 italic pt-2">
         Rates are industry-standard estimates. Confirm with MIMA's actual pricing.
       </p>
     </div>
@@ -498,7 +497,6 @@ function ProRataTab() {
   const [annualPremium, setAnnualPremium] = useState('');
   const [monthsRemaining, setMonthsRemaining] = useState('');
 
-  // Installments sub-tool
   const [showInstallments, setShowInstallments] = useState(false);
   const [depositPercent, setDepositPercent] = useState('30');
   const [numInstallments, setNumInstallments] = useState('3');
@@ -521,7 +519,7 @@ function ProRataTab() {
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-semibold text-gray-600 mb-1">
+        <label className="block text-xs font-semibold text-gray-700 mb-1">
           Annual Premium (KES)
         </label>
         <input
@@ -529,12 +527,12 @@ function ProRataTab() {
           value={annualPremium}
           onChange={(e) => setAnnualPremium(e.target.value)}
           placeholder="e.g. 75000"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] bg-white"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-gray-600 mb-1">
+        <label className="block text-xs font-semibold text-gray-700 mb-1">
           Months Remaining (for pro-rata)
         </label>
         <input
@@ -544,7 +542,7 @@ function ProRataTab() {
           placeholder="e.g. 6"
           min="0"
           max="12"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] bg-white"
         />
       </div>
 
@@ -562,7 +560,7 @@ function ProRataTab() {
         </div>
       )}
 
-      <div className="border-t border-gray-200 pt-3">
+      <div className="border-t border-red-200 pt-3">
         <button
           onClick={() => setShowInstallments(!showInstallments)}
           className="text-xs font-semibold text-[#1e3a8a] hover:underline"
@@ -575,31 +573,31 @@ function ProRataTab() {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Deposit %
               </label>
               <input
                 type="number"
                 value={depositPercent}
                 onChange={(e) => setDepositPercent(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
                 # Installments
               </label>
               <input
                 type="number"
                 value={numInstallments}
                 onChange={(e) => setNumInstallments(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] bg-white"
               />
             </div>
           </div>
 
           {installmentResult && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-1 text-xs">
+            <div className="bg-white border border-red-200 rounded-xl p-3 space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-gray-600">Deposit ({depositPercent}%)</span>
                 <span className="font-semibold">{formatKES(installmentResult.deposit)}</span>
