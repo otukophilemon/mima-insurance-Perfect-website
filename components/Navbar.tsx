@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { href: '/about', label: 'About' },
   { href: '/team', label: 'Our Team' },
   { href: '/blog', label: 'Blog' },
+  { href: '/calculators', label: 'Calculators' },
   { href: '/contact', label: 'Contact' },
   { href: '/claim', label: 'Claims' },
   { href: '/track', label: 'Track Claim' },
