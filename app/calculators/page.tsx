@@ -41,14 +41,14 @@ const CALCULATORS = [
     gradient: 'from-blue-500 to-blue-600',
     available: true,
   },
-  {
+    {
     href: '/calculators/health',
     title: 'Health Insurance Estimator',
     description:
-      'Get a quick estimate for individual or family medical cover. Coming soon.',
+      'Estimate your medical insurance premium. Compare inpatient, comprehensive, and executive cover for individuals or families.',
     icon: Heart,
     gradient: 'from-red-500 to-red-600',
-    available: false,
+    available: true,
   },
   {
     href: '/calculators/travel',

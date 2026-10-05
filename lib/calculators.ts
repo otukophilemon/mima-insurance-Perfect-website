@@ -253,3 +253,162 @@ export function formatKES(amount: number): string {
 export function formatPercent(rate: number): string {
   return `${(rate * 100).toFixed(2)}%`;
 }
+
+// ============================================
+// HEALTH INSURANCE ESTIMATOR
+// ============================================
+
+/**
+ * Health insurance pricing model for Kenya.
+ * Ranges are based on typical market rates from major insurers (AAR, Jubilee, 
+ * Britam, Old Mutual, CIC, Madison) as of 2024-2025.
+ *
+ * These are RANGES, not exact quotes. Actual premium depends on:
+ * - Specific insurer
+ * - Pre-existing conditions
+ * - Hospital tier (A/B/C)
+ * - Optional benefits (dental, optical, maternity)
+ */
+
+export type HealthCoverLevel = 'inpatient' | 'comprehensive' | 'executive';
+export type FamilySize = 'single' | 'couple' | 'family';
+
+export interface HealthCalcInput {
+  age: number;
+  coverLevel: HealthCoverLevel;
+  familySize: FamilySize;
+  annualLimit?: number; // in KES, optional
+}
+
+export interface HealthCalcOutput {
+  // Range for the exact combination requested
+  minPremium: number;
+  maxPremium: number;
+  
+  // Context for the calculator display
+  ageBand: string;
+  coverLevelLabel: string;
+  familySizeLabel: string;
+  annualLimit: number;
+  
+  // Age-band breakdown table (for educational display)
+  ageBands: {
+    band: string;
+    minMultiplier: number;
+    maxMultiplier: number;
+  }[];
+  
+  // Notes about what's included
+  inclusions: string[];
+  exclusions: string[];
+}
+
+// Base price ranges by cover level for a SINGLE adult, age 25-35
+// (used as baseline, all other prices are multipliers on these)
+const HEALTH_BASE_RATES: Record<HealthCoverLevel, { min: number; max: number; label: string }> = {
+  inpatient: {
+    min: 25000,
+    max: 45000,
+    label: 'Inpatient Only',
+  },
+  comprehensive: {
+    min: 55000,
+    max: 95000,
+    label: 'Inpatient + Outpatient',
+  },
+  executive: {
+    min: 120000,
+    max: 220000,
+    label: 'Executive / Premium',
+  },
+};
+
+// Family size multipliers
+const FAMILY_MULTIPLIERS: Record<FamilySize, { mult: number; label: string; description: string }> = {
+  single: { mult: 1.0, label: 'Single', description: '1 adult' },
+  couple: { mult: 1.9, label: 'Couple', description: '2 adults' },
+  family: { mult: 3.2, label: 'Family', description: '2 adults + up to 4 children' },
+};
+
+// Age band multipliers (based on actuarial risk curves)
+const AGE_BANDS = [
+  { band: '18-25', minAge: 18, maxAge: 25, mult: 0.85 },
+  { band: '26-35', minAge: 26, maxAge: 35, mult: 1.0 },
+  { band: '36-45', minAge: 36, maxAge: 45, mult: 1.35 },
+  { band: '46-55', minAge: 46, maxAge: 55, mult: 1.85 },
+  { band: '56-65', minAge: 56, maxAge: 65, mult: 2.65 },
+  { band: '66+',   minAge: 66, maxAge: 120, mult: 3.80 },
+];
+
+export function calculateHealthPremium(input: HealthCalcInput): HealthCalcOutput {
+  const { age, coverLevel, familySize } = input;
+
+  // Find the age band
+  const ageBand = AGE_BANDS.find((b) => age >= b.minAge && age <= b.maxAge) || AGE_BANDS[1];
+
+  const base = HEALTH_BASE_RATES[coverLevel];
+  const familyMult = FAMILY_MULTIPLIERS[familySize].mult;
+  const ageMult = ageBand.mult;
+
+  const minPremium = Math.round((base.min * familyMult * ageMult) / 1000) * 1000;
+  const maxPremium = Math.round((base.max * familyMult * ageMult) / 1000) * 1000;
+
+  // Estimate of the annual limit
+  const annualLimit = input.annualLimit || (coverLevel === 'inpatient' ? 1000000 : coverLevel === 'comprehensive' ? 3000000 : 5000000);
+
+  // Age band breakdown table with multipliers
+  const ageBands = AGE_BANDS.map((b) => ({
+    band: b.band,
+    minMultiplier: base.min * familyMult * b.mult,
+    maxMultiplier: base.max * familyMult * b.mult,
+  }));
+
+  // Inclusions/exclusions by cover level
+  const inclusions: Record<HealthCoverLevel, string[]> = {
+    inpatient: [
+      'Hospital admission and bed charges',
+      'Surgery and theatre fees',
+      'Doctor and specialist fees',
+      'Diagnostic tests and imaging',
+      'Prescription drugs during admission',
+      'Follow-up consultations (60-90 days)',
+    ],
+    comprehensive: [
+      'Everything in Inpatient cover',
+      'Outpatient consultations and GP visits',
+      'Prescription drugs (outpatient)',
+      'Diagnostic tests (outpatient)',
+      'Limited dental and optical (varies)',
+      'Basic maternity (after waiting period)',
+    ],
+    executive: [
+      'Everything in Comprehensive cover',
+      'Higher limits for dental and optical',
+      'International treatment options',
+      'Private hospital / VIP room upgrades',
+      'Comprehensive maternity cover',
+      'Executive wellness and screening',
+      'Wellness and preventive programs',
+    ],
+  };
+
+  const exclusions = [
+    'Pre-existing conditions (typically excluded in year 1)',
+    'Cosmetic and elective procedures',
+    'Self-inflicted injuries',
+    'War and terrorism-related injuries',
+    'Maternity (on inpatient-only plans)',
+  ];
+
+  return {
+    minPremium,
+    maxPremium,
+    ageBand: ageBand.band,
+    coverLevelLabel: base.label,
+    familySizeLabel: FAMILY_MULTIPLIERS[familySize].label,
+    annualLimit,
+    ageBands,
+    inclusions: inclusions[coverLevel],
+    exclusions,
+  };
+}
