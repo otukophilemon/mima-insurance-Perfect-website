@@ -493,3 +493,175 @@ export async function sendQuoteStatusUpdate(data: {
     throw error;
   }
 }
+
+// ============================================
+// POLICY EXPIRY REMINDER EMAILS
+// ============================================
+
+export async function sendPolicyExpiryReminder30Days(data: {
+  email: string;
+  full_name: string;
+  policy_number: string;
+  policy_type: string;
+  expiry_date: string;
+  annual_premium: number;
+}) {
+  const formattedExpiry = new Date(data.expiry_date).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+  const formattedPremium = new Intl.NumberFormat('en-KE', {
+    style: 'currency',
+    currency: 'KES',
+    minimumFractionDigits: 0,
+  }).format(data.annual_premium);
+
+  try {
+    await sgMail.send({
+      to: data.email,
+      from: FROM_EMAIL,
+      subject: `Your ${data.policy_type} policy expires in 30 days`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <div style="background: #0f172a; color: white; padding: 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 22px;">Policy Renewal Reminder</h1>
+            <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.8;">MIMA Insurance Brokers</p>
+          </div>
+
+          <div style="padding: 32px 24px;">
+            <p style="font-size: 15px;">Dear ${data.full_name},</p>
+            <p style="font-size: 15px;">
+              This is a friendly reminder that your <strong>${data.policy_type}</strong> insurance policy expires in <strong>30 days</strong>.
+            </p>
+
+            <div style="background: #f9fafb; border-radius: 12px; padding: 20px; margin: 24px 0;">
+              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                <span style="color: #6b7280; font-size: 13px;">Policy Number</span>
+                <span style="font-family: monospace; font-weight: 700; color: #0f172a; font-size: 13px;">${data.policy_number}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                <span style="color: #6b7280; font-size: 13px;">Expiry Date</span>
+                <span style="font-weight: 700; color: #dc2626; font-size: 13px;">${formattedExpiry}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <span style="color: #6b7280; font-size: 13px;">Annual Premium</span>
+                <span style="font-weight: 700; color: #0f172a; font-size: 13px;">${formattedPremium}</span>
+              </div>
+            </div>
+
+            <div style="background: #eff6ff; border-left: 4px solid #1e3a8a; padding: 16px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #1e3a8a;">
+                <strong>Don't let your cover lapse.</strong><br>
+                Renew today to keep your protection active without interruption.
+              </p>
+            </div>
+
+            <div style="text-align: center; margin: 32px 0 16px 0;">
+              <a href="https://mima-insurance-perfect-website-ashen.vercel.app/pay"
+                 style="display: inline-block; background: #dc2626; color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: 700; font-size: 14px;">
+                Renew My Policy
+              </a>
+            </div>
+
+            <p style="font-size: 13px; color: #6b7280; margin-top: 24px;">
+              Prefer to talk? Call us on <strong>0116 000 073</strong> (Nairobi) or <strong>0714 660 000</strong> (Nakuru).
+            </p>
+          </div>
+
+          <div style="background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280;">
+            © ${new Date().getFullYear()} MIMA Insurance Brokers Limited<br>
+            Nairobi · Nakuru · Kenya
+          </div>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error('SendGrid policy 30-day reminder error:', error);
+    throw error;
+  }
+}
+
+export async function sendPolicyExpiryReminder7Days(data: {
+  email: string;
+  full_name: string;
+  policy_number: string;
+  policy_type: string;
+  expiry_date: string;
+  annual_premium: number;
+}) {
+  const formattedExpiry = new Date(data.expiry_date).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+  const formattedPremium = new Intl.NumberFormat('en-KE', {
+    style: 'currency',
+    currency: 'KES',
+    minimumFractionDigits: 0,
+  }).format(data.annual_premium);
+
+  try {
+    await sgMail.send({
+      to: data.email,
+      from: FROM_EMAIL,
+      subject: `⚠️ URGENT: Your ${data.policy_type} policy expires in 7 days`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <div style="background: #dc2626; color: white; padding: 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 22px;">⚠️ URGENT: Policy Expires in 7 Days</h1>
+            <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.9;">MIMA Insurance Brokers</p>
+          </div>
+
+          <div style="padding: 32px 24px;">
+            <p style="font-size: 15px;">Dear ${data.full_name},</p>
+            <p style="font-size: 15px;">
+              Your <strong>${data.policy_type}</strong> insurance policy expires in <strong style="color: #dc2626;">7 days</strong>. Please renew now to avoid a gap in your cover.
+            </p>
+
+            <div style="background: #fef2f2; border-radius: 12px; padding: 20px; margin: 24px 0; border: 1px solid #fecaca;">
+              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #fecaca;">
+                <span style="color: #6b7280; font-size: 13px;">Policy Number</span>
+                <span style="font-family: monospace; font-weight: 700; color: #0f172a; font-size: 13px;">${data.policy_number}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #fecaca;">
+                <span style="color: #6b7280; font-size: 13px;">Expiry Date</span>
+                <span style="font-weight: 700; color: #dc2626; font-size: 13px;">${formattedExpiry}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <span style="color: #6b7280; font-size: 13px;">Annual Premium</span>
+                <span style="font-weight: 700; color: #0f172a; font-size: 13px;">${formattedPremium}</span>
+              </div>
+            </div>
+
+            <div style="background: #eff6ff; border-left: 4px solid #1e3a8a; padding: 16px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; font-size: 14px; color: #1e3a8a;">
+                <strong>What happens if I don't renew?</strong><br>
+                Your cover ends on the expiry date. If you file a claim after that, it will not be covered.
+              </p>
+            </div>
+
+            <div style="text-align: center; margin: 32px 0 16px 0;">
+              <a href="https://mima-insurance-perfect-website-ashen.vercel.app/pay"
+                 style="display: inline-block; background: #dc2626; color: white; padding: 16px 32px; border-radius: 999px; text-decoration: none; font-weight: 700; font-size: 15px;">
+                Renew Now
+              </a>
+            </div>
+
+            <p style="font-size: 13px; color: #6b7280; margin-top: 24px;">
+              Need help? Call us on <strong>0116 000 073</strong> (Nairobi) or <strong>0714 660 000</strong> (Nakuru).
+            </p>
+          </div>
+
+          <div style="background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280;">
+            © ${new Date().getFullYear()} MIMA Insurance Brokers Limited<br>
+            Nairobi · Nakuru · Kenya
+          </div>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error('SendGrid policy 7-day reminder error:', error);
+    throw error;
+  }
+}
