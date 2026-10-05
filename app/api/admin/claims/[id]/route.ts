@@ -44,6 +44,7 @@ export async function GET(
 
     const { id } = await params;
 
+    // 1. Fetch the claim
     const { data: claim, error } = await adminSupabase
       .from('claims')
       .select('*')
@@ -54,7 +55,33 @@ export async function GET(
       return NextResponse.json({ error: 'Claim not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ claim });
+    // 2. Fetch linked documents
+    const { data: documents } = await adminSupabase
+      .from('claim_documents')
+      .select('id, file_name, file_path, file_size, file_type, uploaded_at')
+      .eq('claim_id', id)
+      .order('uploaded_at', { ascending: true });
+
+    // 3. Generate signed URLs for each document (valid 1 hour)
+    const documentsWithUrls = await Promise.all(
+      (documents || []).map(async (doc) => {
+        try {
+          const { data: signed } = await adminSupabase.storage
+            .from('claim-documents')
+            .createSignedUrl(doc.file_path, 3600); // 1 hour
+
+          return {
+            ...doc,
+            signed_url: signed?.signedUrl || null,
+          };
+        } catch (err) {
+          console.error('Signed URL error for', doc.file_path, err);
+          return { ...doc, signed_url: null };
+        }
+      })
+    );
+
+    return NextResponse.json({ claim, documents: documentsWithUrls });
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

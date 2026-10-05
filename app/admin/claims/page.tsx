@@ -13,11 +13,22 @@ import {
   CheckCircle,
   Clock,
   Calendar,
-  Download,
   Filter,
+  Download,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { filterByDateRange } from '@/lib/dateRange';
 import { exportToCSV, formatDateForCSV } from '@/lib/csv';
+
+interface ClaimDocument {
+  id: number;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  file_type: string;
+  uploaded_at: string;
+  signed_url: string | null;
+}
 
 interface Claim {
   id: number;
@@ -91,6 +102,8 @@ export default function AdminClaimsPage() {
   const [dateTo, setDateTo] = useState('');
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [selectedClaimDocuments, setSelectedClaimDocuments] = useState<ClaimDocument[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -408,8 +421,23 @@ export default function AdminClaimsPage() {
                     <td className="px-6 py-4 text-xs text-gray-600">{formatDate(claim.created_at)}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setSelectedClaim(claim)}
+                                                <button
+                          onClick={async () => {
+                            setSelectedClaim(claim);
+                            setSelectedClaimDocuments([]);
+                            setLoadingDocuments(true);
+                            try {
+                              const res = await fetch(`/api/admin/claims/${claim.id}`);
+                              if (res.ok) {
+                                const data = await res.json();
+                                setSelectedClaimDocuments(data.documents || []);
+                              }
+                            } catch (err) {
+                              console.error('Failed to load documents:', err);
+                            } finally {
+                              setLoadingDocuments(false);
+                            }
+                          }}
                           className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[#1e3a8a] hover:bg-blue-50 rounded-lg transition"
                         >
                           <Eye size={14} />
@@ -512,6 +540,69 @@ export default function AdminClaimsPage() {
                   </div>
                 </div>
               )}
+                            {/* Supporting Documents */}
+              <div>
+                <div className="text-xs text-gray-500 uppercase font-semibold mb-2">
+                  Supporting Documents
+                </div>
+                {loadingDocuments ? (
+                  <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-500 flex items-center gap-2">
+                    <Loader2 className="animate-spin" size={14} />
+                    Loading documents...
+                  </div>
+                ) : selectedClaimDocuments.length === 0 ? (
+                  <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-500 italic">
+                    No documents uploaded with this claim.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedClaimDocuments.map((doc) => {
+                      const isImage = doc.file_type.startsWith('image/');
+                      return (
+                        <div
+                          key={doc.id}
+                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 hover:border-[#1e3a8a] transition"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                            {isImage ? (
+                              <ImageIcon size={18} className="text-blue-500" />
+                            ) : (
+                              <FileText size={18} className="text-red-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">
+                              {doc.file_name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {doc.file_size < 1024
+                                ? `${doc.file_size} B`
+                                : doc.file_size < 1024 * 1024
+                                ? `${(doc.file_size / 1024).toFixed(1)} KB`
+                                : `${(doc.file_size / 1024 / 1024).toFixed(2)} MB`}
+                            </div>
+                          </div>
+                          {doc.signed_url ? (
+                            <a
+                              href={doc.signed_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[#1e3a8a] hover:bg-blue-50 rounded-lg transition"
+                            >
+                              <Download size={14} />
+                              Download
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">
+                              URL unavailable
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-6 border-t border-gray-100 flex gap-3 justify-end flex-wrap">
