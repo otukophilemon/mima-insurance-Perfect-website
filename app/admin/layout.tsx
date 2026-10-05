@@ -21,6 +21,7 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
+import AdminCalculator from '@/components/AdminCalculators';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -271,10 +272,13 @@ export default function AdminLayout({
         </div>
       )}
 
-      {/* Main content */}
+            {/* Main content */}
       <main className="flex-1 pt-16 lg:pt-0">
         {children}
       </main>
+
+      {/* Floating admin calculator (bottom-right, appears on every admin page) */}
+      <AdminCalculator />
     </div>
   );
 }
