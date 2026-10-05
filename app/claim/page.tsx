@@ -1,7 +1,7 @@
 // app/claim/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -18,6 +18,10 @@ import {
   PhoneCall,
   Clock,
   ShieldCheck,
+  X,
+  Image as ImageIcon,
+  File as FileIcon,
+  Loader2,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -26,12 +30,34 @@ import { COMPANY } from '@/data/company';
 
 const STEPS = ['Claim Type', 'Incident Details', 'Your Details', 'Review'];
 
+const MAX_FILES = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+];
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
 export default function ClaimPage() {
-    const [step, setStep] = useState(0);
+  const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState({
     claimType: '',
     policyNumber: '',
@@ -55,6 +81,39 @@ export default function ClaimPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError('');
+    const selected = Array.from(e.target.files || []);
+
+    if (files.length + selected.length > MAX_FILES) {
+      setFileError(`You can upload up to ${MAX_FILES} files.`);
+      return;
+    }
+
+    const valid: File[] = [];
+    for (const f of selected) {
+      if (!ALLOWED_TYPES.includes(f.type)) {
+        setFileError(`"${f.name}" is not a supported file type.`);
+        continue;
+      }
+      if (f.size > MAX_FILE_SIZE) {
+        setFileError(`"${f.name}" exceeds the 5 MB limit.`);
+        continue;
+      }
+      valid.push(f);
+    }
+
+    setFiles((prev) => [...prev, ...valid]);
+
+    // Reset the input so picking the same file twice works
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFileError('');
+  };
+
   const handleNext = () => {
     if (step < STEPS.length - 1) setStep(step + 1);
   };
@@ -63,16 +122,17 @@ export default function ClaimPage() {
     if (step > 0) setStep(step - 1);
   };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitError('');
 
     try {
+      // 1. Submit the claim first
       const { submitClaim } = await import('@/lib/submissions');
       const trackNum = `MIMA-${Date.now().toString().slice(-8)}`;
 
-      await submitClaim({
+      const claimResponse = await submitClaim({
         tracking_number: trackNum,
         claim_type: formData.claimType,
         incident_date: formData.incidentDate,
@@ -84,6 +144,37 @@ export default function ClaimPage() {
         policy_number: formData.policyNumber,
         additional_notes: formData.additionalNotes || undefined,
       });
+
+      // 2. If files were selected, upload them
+      //    We need the claim's DB id. If submitClaim returns it, use it.
+      //    Otherwise, upload without claim_id and MIMA can link later.
+      let claimId: string | number | null = null;
+      if (claimResponse && typeof claimResponse === 'object') {
+        claimId =
+          (claimResponse as any).id ||
+          (claimResponse as any).claim?.id ||
+          null;
+      }
+
+      if (files.length > 0) {
+        const uploadForm = new FormData();
+        files.forEach((f) => uploadForm.append('files', f));
+        if (claimId) uploadForm.append('claim_id', String(claimId));
+
+        try {
+          const uploadRes = await fetch('/api/claim/upload', {
+            method: 'POST',
+            body: uploadForm,
+          });
+
+          if (!uploadRes.ok) {
+            console.warn('Some documents may not have uploaded');
+          }
+        } catch (uploadErr) {
+          console.warn('Document upload failed:', uploadErr);
+          // Claim still succeeded — don't block the user
+        }
+      }
 
       setTrackingNumber(trackNum);
       setSubmitted(true);
@@ -141,7 +232,7 @@ export default function ClaimPage() {
       </section>
 
       {/* Progress Bar */}
-            <div className="bg-white border-b border-gray-200 sticky top-16 z-30">
+      <div className="bg-white border-b border-gray-200 sticky top-16 z-30">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
             {STEPS.map((label, i) => (
@@ -225,7 +316,9 @@ export default function ClaimPage() {
                   <li className="flex gap-3">
                     <span className="font-bold text-[#dc2626]">2.</span>
                     <div>
-                      <div className="font-semibold">Assessment & documentation</div>
+                      <div className="font-semibold">
+                        Assessment & documentation
+                      </div>
                       <div className="text-gray-500 text-xs">
                         Our team reviews your submission within 24 hours
                       </div>
@@ -279,8 +372,7 @@ export default function ClaimPage() {
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {SERVICES.map((service) => {
                           const Icon = service.icon;
-                          const isSelected =
-                            formData.claimType === service.id;
+                          const isSelected = formData.claimType === service.id;
                           return (
                             <button
                               key={service.id}
@@ -323,7 +415,6 @@ export default function ClaimPage() {
                       </p>
 
                       <div className="space-y-5">
-                        {/* Selected service badge */}
                         {selectedService && (
                           <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
                             <div
@@ -345,7 +436,6 @@ export default function ClaimPage() {
                           </div>
                         )}
 
-                        {/* Incident Date */}
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <Calendar size={14} /> Date of Incident *
@@ -361,7 +451,6 @@ export default function ClaimPage() {
                           />
                         </div>
 
-                        {/* Description */}
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <FileText size={14} /> Description of Incident *
@@ -377,7 +466,6 @@ export default function ClaimPage() {
                           />
                         </div>
 
-                        {/* Estimated Value */}
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <DollarSign size={14} /> Estimated Claim Value (KES) *
@@ -393,23 +481,97 @@ export default function ClaimPage() {
                           />
                         </div>
 
-                        {/* File upload (placeholder) */}
+                        {/* File Upload — REAL */}
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <Upload size={14} /> Supporting Documents
+                            <span className="text-gray-400 font-normal text-xs">
+                              (Optional, up to {MAX_FILES} files)
+                            </span>
                           </label>
-                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#dc2626] transition cursor-pointer">
+
+                          {/* Drop zone / file picker */}
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#dc2626] transition cursor-pointer"
+                          >
                             <Upload
                               className="text-gray-400 mx-auto mb-2"
                               size={28}
                             />
-                            <p className="text-sm text-gray-600">
-                              Click to upload photos, police reports, or receipts
+                            <p className="text-sm font-medium text-gray-700">
+                              Click to upload photos, police reports, or
+                              receipts
                             </p>
                             <p className="text-xs text-gray-400 mt-1">
-                              PDF, JPG, PNG (max 10MB each)
+                              PDF, JPG, PNG, WEBP, HEIC · Max 5 MB each
                             </p>
                           </div>
+
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                          />
+
+                          {/* Error message */}
+                          {fileError && (
+                            <div className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                              <X size={12} />
+                              {fileError}
+                            </div>
+                          )}
+
+                          {/* File list */}
+                          {files.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                              <div className="text-xs text-gray-500 font-semibold uppercase">
+                                Selected files ({files.length}/{MAX_FILES})
+                              </div>
+                              {files.map((f, i) => {
+                                const isImage = f.type.startsWith('image/');
+                                return (
+                                  <div
+                                    key={`${f.name}-${i}`}
+                                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                  >
+                                    <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                                      {isImage ? (
+                                        <ImageIcon
+                                          size={16}
+                                          className="text-blue-500"
+                                        />
+                                      ) : (
+                                        <FileIcon
+                                          size={16}
+                                          className="text-red-500"
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-sm font-medium text-gray-900 truncate">
+                                        {f.name}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        {formatFileSize(f.size)}
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeFile(i)}
+                                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                                      title="Remove file"
+                                    >
+                                      <X size={16} />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -426,7 +588,6 @@ export default function ClaimPage() {
                       </p>
 
                       <div className="space-y-5">
-                        {/* Full Name */}
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <User size={14} /> Full Name *
@@ -442,7 +603,6 @@ export default function ClaimPage() {
                           />
                         </div>
 
-                        {/* Email & Phone */}
                         <div className="grid md:grid-cols-2 gap-5">
                           <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
@@ -474,7 +634,6 @@ export default function ClaimPage() {
                           </div>
                         </div>
 
-                        {/* Policy Number */}
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <ShieldCheck size={14} /> Policy Number *
@@ -493,7 +652,6 @@ export default function ClaimPage() {
                           </p>
                         </div>
 
-                        {/* Additional Notes */}
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                             <MessageSquare size={14} /> Additional Notes
@@ -564,19 +722,30 @@ export default function ClaimPage() {
                             {formData.policyNumber}
                           </span>
                         </div>
+                        {files.length > 0 && (
+                          <div className="flex justify-between py-3 border-t border-gray-200">
+                            <span className="text-gray-600">
+                              Supporting Documents
+                            </span>
+                            <span className="font-semibold text-gray-900">
+                              {files.length} file
+                              {files.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
-                               {/* Error Message */}
-              {submitError && (
-                <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                  {submitError}
-                </div>
-              )}
+                  {/* Error Message */}
+                  {submitError && (
+                    <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                      {submitError}
+                    </div>
+                  )}
 
-              {/* Navigation Buttons */}
-              <div className="flex gap-3 pt-8 mt-8 border-t border-gray-100">
+                  {/* Navigation Buttons */}
+                  <div className="flex gap-3 pt-8 mt-8 border-t border-gray-100">
                     {step > 0 && (
                       <button
                         type="button"
@@ -596,16 +765,24 @@ export default function ClaimPage() {
                         Continue <ArrowRight size={18} />
                       </button>
                     ) : (
-                                        <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="ml-auto inline-flex items-center gap-2 px-8 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-wait text-white font-semibold rounded-full transition-all shadow-lg"
-                  >
-                    {isSubmitting ? 'Submitting...' : 'Submit Claim'}
-                    {!isSubmitting && <CheckCircle size={18} />}
-                  </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="ml-auto inline-flex items-center gap-2 px-8 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-wait text-white font-semibold rounded-full transition-all shadow-lg"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="animate-spin" size={18} />
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            Submit Claim
+                            <CheckCircle size={18} />
+                          </>
+                        )}
+                      </button>
                     )}
-
                   </div>
                 </form>
               </div>
@@ -613,7 +790,6 @@ export default function ClaimPage() {
               {/* Sidebar */}
               <div className="lg:col-span-1">
                 <div className="sticky top-24 space-y-6">
-                  {/* Help Card */}
                   <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">
                       Need Help?
@@ -660,7 +836,6 @@ export default function ClaimPage() {
                     </div>
                   </div>
 
-                  {/* Response Timeline */}
                   <div className="bg-gradient-to-br from-blue-50 to-white rounded-2xl border border-blue-100 p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                       <Clock className="text-[#1e3a8a]" size={20} />
