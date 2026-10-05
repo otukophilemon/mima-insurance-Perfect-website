@@ -50,14 +50,14 @@ const CALCULATORS = [
     gradient: 'from-red-500 to-red-600',
     available: true,
   },
-  {
+    {
     href: '/calculators/travel',
     title: 'Travel Insurance Calculator',
     description:
-      'Calculate travel insurance for your next trip abroad. Coming soon.',
+      'Estimate travel insurance for your next trip. Covers regional and international destinations, any duration, all ages.',
     icon: Plane,
     gradient: 'from-emerald-500 to-emerald-600',
-    available: false,
+    available: true,
   },
 ];
 

@@ -412,3 +412,199 @@ export function calculateHealthPremium(input: HealthCalcInput): HealthCalcOutput
     exclusions,
   };
 }
+// ============================================
+// TRAVEL INSURANCE CALCULATOR
+// ============================================
+
+/**
+ * Travel insurance pricing model for Kenya (outbound travel).
+ * Based on typical 2024-2025 market rates for a 10-day trip per adult.
+ *
+ * Actual premium depends on:
+ * - Specific insurer
+ * - Pre-existing medical conditions
+ * - Adventure sports coverage
+ * - Trip cancellation add-on
+ */
+
+export type TravelDestination =
+  | 'domestic'
+  | 'east-africa'
+  | 'africa'
+  | 'worldwide-excl-usa'
+  | 'worldwide-incl-usa';
+
+export type TravelCoverLevel = 'basic' | 'standard' | 'comprehensive';
+
+export type TravelerAgeGroup = 'child' | 'adult' | 'senior' | 'elderly';
+
+export interface TravelCalcInput {
+  destination: TravelDestination;
+  days: number;
+  coverLevel: TravelCoverLevel;
+  ageGroup: TravelerAgeGroup;
+  travelerCount: number;
+}
+
+export interface TravelCalcOutput {
+  minPremium: number;
+  maxPremium: number;
+
+  destinationLabel: string;
+  coverLevelLabel: string;
+  ageGroupLabel: string;
+  days: number;
+  travelerCount: number;
+
+  // Breakdown
+  basePerPerson: number;
+  ageMultiplier: number;
+  durationMultiplier: number;
+  groupDiscount: number;
+
+  // Features
+  features: string[];
+}
+
+// Base rates for a 10-day trip per adult (Standard cover = 100%)
+const TRAVEL_BASE_RATES: Record<
+  TravelDestination,
+  { label: string; min: number; max: number }
+> = {
+  domestic: {
+    label: 'Within Kenya',
+    min: 2500,
+    max: 4000,
+  },
+  'east-africa': {
+    label: 'East Africa (EAC)',
+    min: 5500,
+    max: 8500,
+  },
+  africa: {
+    label: 'Africa (excluding EAC)',
+    min: 8000,
+    max: 12000,
+  },
+  'worldwide-excl-usa': {
+    label: 'Worldwide (excluding USA/Canada)',
+    min: 10000,
+    max: 15000,
+  },
+  'worldwide-incl-usa': {
+    label: 'Worldwide (including USA/Canada)',
+    min: 25000,
+    max: 40000,
+  },
+};
+
+// Cover level multipliers (Basic = 0.6x, Standard = 1.0x, Comprehensive = 1.5x)
+const TRAVEL_COVER_MULTIPLIERS: Record<
+  TravelCoverLevel,
+  { mult: number; label: string; features: string[] }
+> = {
+  basic: {
+    mult: 0.6,
+    label: 'Basic',
+    features: [
+      'Emergency medical expenses up to USD 25,000',
+      'Emergency evacuation & repatriation',
+      'Personal accident cover',
+      'Baggage loss up to USD 500',
+    ],
+  },
+  standard: {
+    mult: 1.0,
+    label: 'Standard',
+    features: [
+      'Emergency medical expenses up to USD 100,000',
+      'Emergency evacuation & repatriation',
+      'Personal accident cover',
+      'Baggage loss up to USD 1,500',
+      'Trip cancellation up to USD 2,000',
+      'Trip delay cover',
+      'Personal liability',
+    ],
+  },
+  comprehensive: {
+    mult: 1.5,
+    label: 'Comprehensive',
+    features: [
+      'Emergency medical expenses up to USD 250,000',
+      'Emergency evacuation & repatriation',
+      'Personal accident cover',
+      'Baggage loss up to USD 3,000',
+      'Trip cancellation up to USD 5,000',
+      'Trip delay cover',
+      'Personal liability',
+      'Adventure sports coverage',
+      'Pre-existing conditions covered (with declaration)',
+    ],
+  },
+};
+
+// Age multipliers
+const TRAVEL_AGE_MULTIPLIERS: Record<
+  TravelerAgeGroup,
+  { mult: number; label: string }
+> = {
+  child: { mult: 0.5, label: 'Child (0-17)' },
+  adult: { mult: 1.0, label: 'Adult (18-64)' },
+  senior: { mult: 2.0, label: 'Senior (65-75)' },
+  elderly: { mult: 3.0, label: 'Elderly (76+)' },
+};
+
+export function calculateTravelPremium(input: TravelCalcInput): TravelCalcOutput {
+  const { destination, days, coverLevel, ageGroup, travelerCount } = input;
+
+  const base = TRAVEL_BASE_RATES[destination];
+  const coverMult = TRAVEL_COVER_MULTIPLIERS[coverLevel].mult;
+  const ageMult = TRAVEL_AGE_MULTIPLIERS[ageGroup].mult;
+
+  // Duration: scales linearly with days. Minimum 5 days, max 180 days.
+  const safeDays = Math.max(5, Math.min(180, days));
+  const durationMult = safeDays / 10;
+
+  // Base per person
+  const basePerPerson = (base.min + base.max) / 2;
+  const adjustedBase = basePerPerson * coverMult * ageMult * durationMult;
+
+  // Range spread (30% either side to reflect insurer variation)
+  let minPremium = adjustedBase * 0.85;
+  let maxPremium = adjustedBase * 1.25;
+
+  // Group discount (5% off for 2-3 people, 10% for 4+)
+  let groupDiscount = 0;
+  if (travelerCount >= 4) {
+    groupDiscount = 0.10;
+  } else if (travelerCount >= 2) {
+    groupDiscount = 0.05;
+  }
+
+  // Multiply by traveler count
+  minPremium *= travelerCount;
+  maxPremium *= travelerCount;
+
+  // Apply group discount
+  minPremium *= 1 - groupDiscount;
+  maxPremium *= 1 - groupDiscount;
+
+  // Round to nearest 100
+  minPremium = Math.round(minPremium / 100) * 100;
+  maxPremium = Math.round(maxPremium / 100) * 100;
+
+  return {
+    minPremium,
+    maxPremium,
+    destinationLabel: base.label,
+    coverLevelLabel: TRAVEL_COVER_MULTIPLIERS[coverLevel].label,
+    ageGroupLabel: TRAVEL_AGE_MULTIPLIERS[ageGroup].label,
+    days: safeDays,
+    travelerCount,
+    basePerPerson: Math.round(basePerPerson),
+    ageMultiplier: ageMult,
+    durationMultiplier: durationMult,
+    groupDiscount,
+    features: TRAVEL_COVER_MULTIPLIERS[coverLevel].features,
+  };
+}
