@@ -20,6 +20,7 @@ import {
   Mail,
   CreditCard,
   Shield,
+  Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 import AdminCalculator from '@/components/AdminCalculators';
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { href: '/admin/quotes', label: 'Quotes', icon: TrendingUp },
   { href: '/admin/payments', label: 'Payments', icon: CreditCard },
   { href: '/admin/users', label: 'Clients', icon: Users },
+  { href: '/admin/import-clients', label: 'Import Clients', icon: Upload },
   { href: '/admin/contacts', label: 'Contacts', icon: Mail },
   { href: '/admin/admins', label: 'Admins', icon: ShieldCheck },
   { href: '/admin/audit-log', label: 'Audit Log', icon: Shield },
