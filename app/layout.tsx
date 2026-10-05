@@ -7,7 +7,7 @@ import SchemaMarkup from "@/components/SchemaMarkup";
 export const metadata: Metadata = {
   metadataBase: new URL("https://mima-insurance-perfect-website-ashen.vercel.app"),
   verification: {
-    google: 'TDFTXHq8_I4C_HLLJBKJMqfmJgj6EXBi7IRDU77VbcU',
+    google: 'googlef0267b72eeea47b5.html',
   },
   title: {
     default: "MIMA Insurance Brokers | Motor, Health & Business Insurance Kenya",
