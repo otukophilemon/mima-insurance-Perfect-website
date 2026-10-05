@@ -1,10 +1,18 @@
 // components/WhatsAppButton.tsx
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
 import { COMPANY } from '@/data/company';
 
 export default function WhatsAppButton() {
+  const pathname = usePathname();
+
+  // Hide on admin pages — the floating calculator takes this spot there
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   const whatsappUrl = `https://wa.me/${COMPANY.whatsapp.replace('+', '')}?text=${encodeURIComponent(
     "Hi MIMA Insurance, I'd like to know more about your services."
   )}`;

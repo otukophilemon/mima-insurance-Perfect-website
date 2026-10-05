@@ -40,7 +40,7 @@ export default function AdminCalculator() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-[#1e3a8a] hover:bg-[#1e40af] text-white shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+         className="fixed bottom-24 right-6 z-40 w-14 h-14 rounded-full bg-[#1e3a8a] hover:bg-[#1e40af] text-white shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
           title="Open Calculator (Esc to close when open)"
           aria-label="Open admin calculator"
         >
@@ -50,7 +50,7 @@ export default function AdminCalculator() {
 
       {/* ── Panel ────────────────────────────────────────── */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-40 w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[85vh]">
+          <div className="fixed bottom-24 right-6 z-40 w-[380px] max-w-[calc(100vw-2rem)] ...">
           {/* Header */}
           <div className="bg-[#0f172a] text-white px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">

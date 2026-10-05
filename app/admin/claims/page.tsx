@@ -20,6 +20,21 @@ import {
 import { filterByDateRange } from '@/lib/dateRange';
 import { exportToCSV, formatDateForCSV } from '@/lib/csv';
 
+/**
+ * Parse a claim value that may contain commas, spaces, or non-numeric chars.
+ * "1,200,000" → 1200000
+ * "KES 750,000" → 750000
+ * "" → 0
+ */
+function parseClaimValue(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  // Strip everything except digits, dots, and minus signs
+  const cleaned = value.replace(/[^0-9.-]/g, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
 interface ClaimDocument {
   id: number;
   file_name: string;
@@ -410,8 +425,8 @@ export default function AdminClaimsPage() {
                         {claim.claim_type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                      KES {Number(claim.estimated_value || 0).toLocaleString()}
+                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                      KES {parseClaimValue(claim.estimated_value).toLocaleString()}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold capitalize ${getStatusStyle(claim.status)}`}>
