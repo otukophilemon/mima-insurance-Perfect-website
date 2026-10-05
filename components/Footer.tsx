@@ -10,6 +10,7 @@ const QUICK_LINKS = [
   { href: '/team', label: 'Our Team' },
   { href: '/services', label: 'Services' },
   { href: '/blog', label: 'Blog' },
+  { href: '/calculators', label: 'Calculators' },
   { href: '/quote', label: 'Get a Quote' },
   { href: '/claim', label: 'File a Claim' },
   { href: '/track', label: 'Track Claim' },
