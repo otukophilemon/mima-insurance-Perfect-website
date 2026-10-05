@@ -427,8 +427,17 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-3">
                               <a
                                 href={`/api/client/policies/${policy.id}/pdf`}
+                                onClick={() => {
+                                  import('@/lib/analytics').then(
+                                    ({ trackPolicyPdfDownload }) =>
+                                      trackPolicyPdfDownload({
+                                        policy_number: policy.policy_number,
+                                        policy_type: policy.policy_type,
+                                      })
+                                  );
+                                }}
                                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1e3a8a] hover:text-[#1e40af] transition"
-                      >
+                              >
                                 <Download size={14} />
                                 Download PDF
                               </a>

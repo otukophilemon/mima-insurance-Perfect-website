@@ -181,7 +181,7 @@ function AdminPoliciesPageInner() {
 
       if (!res.ok) throw new Error(data.error || 'Failed to create policy');
 
-      if (formData.from_quote_id) {
+            if (formData.from_quote_id) {
         try {
           const quoteRes = await fetch(
             `/api/admin/quotes/${formData.from_quote_id}`,
@@ -194,6 +194,13 @@ function AdminPoliciesPageInner() {
           if (!quoteRes.ok) {
             console.warn('Policy created but quote status update failed');
           }
+
+          // 📊 Analytics: track quote → policy conversion
+          const { trackQuoteConverted } = await import('@/lib/analytics');
+          trackQuoteConverted({
+            insurance_type: formData.policy_type,
+            quote_id: parseInt(formData.from_quote_id),
+          });
         } catch (quoteErr) {
           console.warn('Quote update error:', quoteErr);
         }

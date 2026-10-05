@@ -176,6 +176,15 @@ export default function ClaimPage() {
         }
       }
 
+            // 📊 Analytics: track successful claim submission with document info
+      const { trackClaimSubmission } = await import('@/lib/analytics');
+      trackClaimSubmission({
+        claim_type: formData.claimType,
+        estimated_value: formData.estimatedValue,
+        has_documents: files.length > 0,
+        document_count: files.length,
+      });
+
       setTrackingNumber(trackNum);
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });

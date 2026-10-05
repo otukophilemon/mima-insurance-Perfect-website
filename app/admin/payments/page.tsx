@@ -128,8 +128,15 @@ export default function AdminPaymentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const data = await res.json();
+            const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create payment');
+
+      // 📊 Analytics: track payment logged
+      const { trackPaymentLogged } = await import('@/lib/analytics');
+      trackPaymentLogged({
+        method: formData.method,
+        amount: parseFloat(formData.amount) || 0,
+      });
 
       setMessage({ type: 'success', text: 'Payment recorded successfully!' });
       setFormData(EMPTY_FORM);

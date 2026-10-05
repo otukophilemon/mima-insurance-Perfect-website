@@ -18,10 +18,15 @@ export default function WhatsAppButton() {
   )}`;
 
   return (
-    <a
+        <a
       href={whatsappUrl}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={() => {
+        import('@/lib/analytics').then(({ trackWhatsAppClick }) =>
+          trackWhatsAppClick('floating_button')
+        );
+      }}
       aria-label="Chat with MIMA Insurance on WhatsApp"
       className="fixed bottom-6 right-6 z-50 group flex items-center gap-3 rounded-full bg-green-500 hover:bg-green-600 text-white pl-4 pr-5 py-3 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105"
     >

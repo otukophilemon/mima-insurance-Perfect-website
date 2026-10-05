@@ -1,4 +1,8 @@
 // lib/submissions.ts
+import {
+  trackQuoteSubmission,
+  trackContactSubmission,
+} from './analytics';
 
 export interface QuoteSubmission {
   insurance_type: string;
@@ -48,6 +52,11 @@ export async function submitQuote(data: QuoteSubmission) {
     throw new Error(result.error || 'Submission failed');
   }
 
+  trackQuoteSubmission({
+    insurance_type: data.insurance_type,
+    location: data.location,
+  });
+
   return result.data;
 }
 
@@ -68,6 +77,9 @@ export async function submitClaim(data: ClaimSubmission) {
     throw new Error(result.error || 'Submission failed');
   }
 
+  // Note: Claim submission events are fired on the claim page
+  // (app/claim/page.tsx) so we can include document counts.
+
   return result.data;
 }
 
@@ -87,6 +99,8 @@ export async function submitContact(data: ContactSubmission) {
     console.error('Contact submission error:', result);
     throw new Error(result.error || 'Submission failed');
   }
+
+  trackContactSubmission(data.subject || 'General Inquiry');
 
   return result.data;
 }
