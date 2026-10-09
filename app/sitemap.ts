@@ -8,7 +8,7 @@ const BASE_URL = 'https://mima-insurance-perfect-website-ashen.vercel.app';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
-    // Static pages
+  // Static pages
   const staticPages = [
     { url: '', priority: 1.0, changeFrequency: 'weekly' as const },
     { url: '/about', priority: 0.8, changeFrequency: 'monthly' as const },
@@ -32,7 +32,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: 'monthly' as const,
   }));
 
-  // Fetch blog posts and agents from Supabase
+  // Fetch blog posts and team members from Supabase
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -56,29 +56,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error('Error fetching blog posts for sitemap:', error);
   }
 
-  // Agents
-  let agentPages: { url: string; priority: number; changeFrequency: 'monthly' }[] = [];
+  // Team members
+  let teamPages: { url: string; priority: number; changeFrequency: 'monthly' }[] = [];
   try {
-    const { data: agents } = await supabase
-      .from('agents')
-      .select('slug')
-      .eq('active', true)
-      .order('display_order', { ascending: true });
+    const { data: members } = await supabase
+      .from('user_profiles')
+      .select('team_slug')
+      .eq('is_team_member', true)
+      .eq('team_active', true)
+      .not('team_slug', 'is', null)
+      .order('team_display_order', { ascending: true });
 
-    agentPages = (agents || []).map((agent) => ({
-      url: `/team/${agent.slug}`,
+    teamPages = (members || []).map((member) => ({
+      url: `/team/${member.team_slug}`,
       priority: 0.6,
       changeFrequency: 'monthly' as const,
     }));
   } catch (error) {
-    console.error('Error fetching agents for sitemap:', error);
+    console.error('Error fetching team members for sitemap:', error);
   }
 
   return [
     ...staticPages,
     ...servicePages,
     ...blogPages,
-    ...agentPages,
+    ...teamPages,
   ].map((page) => ({
     url: `${BASE_URL}${page.url}`,
     lastModified: now,

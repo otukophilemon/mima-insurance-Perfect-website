@@ -1,6 +1,5 @@
 // app/team/[slug]/page.tsx
 import Link from 'next/link';
-import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import {
   ArrowLeft,
@@ -17,79 +16,87 @@ import Footer from '@/components/Footer';
 import { createClient } from '@supabase/supabase-js';
 import type { Metadata } from 'next';
 
-interface Agent {
-  id: number;
-  slug: string;
-  name: string;
-  title: string;
-  bio: string;
-  email: string | null;
-  phone: string | null;
-  whatsapp: string | null;
-  photo: string | null;
-  specialties: string[];
-  experience_years: number | null;
-  certifications: string[] | null;
-  linkedin: string | null;
-  display_order: number;
-  active: boolean;
-  created_at: string;
-  updated_at: string;
+interface TeamMember {
+  id: string;
+  full_name: string | null;
+  team_slug: string;
+  team_title: string | null;
+  team_bio: string | null;
+  team_email: string | null;
+  team_phone: string | null;
+  team_whatsapp: string | null;
+  team_photo: string | null;
+  team_specialties: string[];
+  team_experience_years: number | null;
+  team_certifications: string[];
+  team_display_order: number;
 }
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getAgent(slug: string): Promise<Agent | null> {
+async function getMember(slug: string): Promise<TeamMember | null> {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   const { data, error } = await supabase
-    .from('agents')
-    .select('*')
-    .eq('slug', slug)
-    .eq('active', true)
+    .from('user_profiles')
+    .select(
+      'id, full_name, team_slug, team_title, team_bio, team_email, team_phone, team_whatsapp, team_photo, team_specialties, team_experience_years, team_certifications, team_display_order'
+    )
+    .eq('team_slug', slug)
+    .eq('is_team_member', true)
+    .eq('team_active', true)
     .single();
 
-  if (error || !data) return null;
-  return data;
+  if (error || !data || !data.full_name) return null;
+  return data as TeamMember;
 }
 
-async function getOtherAgents(currentSlug: string): Promise<Agent[]> {
+async function getOtherMembers(currentSlug: string): Promise<TeamMember[]> {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   const { data } = await supabase
-    .from('agents')
-    .select('id, slug, name, title, photo, specialties, experience_years')
-    .eq('active', true)
-    .neq('slug', currentSlug)
-    .order('display_order', { ascending: true })
+    .from('user_profiles')
+    .select(
+      'id, full_name, team_slug, team_title, team_bio, team_email, team_phone, team_whatsapp, team_photo, team_specialties, team_experience_years, team_certifications, team_display_order'
+    )
+    .eq('is_team_member', true)
+    .eq('team_active', true)
+    .neq('team_slug', currentSlug)
+    .order('team_display_order', { ascending: true })
     .limit(3);
 
-  return (data as Agent[]) || [];
+  return (data || []).filter(
+    (m): m is TeamMember => !!m.team_slug && !!m.full_name
+  );
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const agent = await getAgent(slug);
+  const member = await getMember(slug);
 
-  if (!agent) {
-    return { title: 'Agent Not Found | MIMA Insurance Brokers' };
+  if (!member) {
+    return { title: 'Team Member Not Found | MIMA Insurance Brokers' };
   }
 
+  const bio = member.team_bio || '';
+
   return {
-    title: `${agent.name} - ${agent.title} | MIMA Insurance Brokers`,
-    description: agent.bio.substring(0, 160),
+    title: `${member.full_name} - ${member.team_title} | MIMA Insurance Brokers`,
+    description: bio.substring(0, 160),
     openGraph: {
-      title: `${agent.name} | MIMA Insurance Brokers`,
-      description: agent.bio.substring(0, 160),
-      images: agent.photo ? [agent.photo] : [],
+      title: `${member.full_name} | MIMA Insurance Brokers`,
+      description: bio.substring(0, 160),
+      images: member.team_photo ? [member.team_photo] : [],
     },
   };
 }
@@ -103,15 +110,16 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-export default async function AgentProfilePage({ params }: PageProps) {
+export default async function TeamMemberProfilePage({ params }: PageProps) {
   const { slug } = await params;
-  const agent = await getAgent(slug);
+  const member = await getMember(slug);
 
-  if (!agent) {
+  if (!member) {
     notFound();
   }
 
-  const otherAgents = await getOtherAgents(slug);
+  const otherMembers = await getOtherMembers(slug);
+  const firstName = (member.full_name || '').split(' ')[0];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -131,18 +139,15 @@ export default async function AgentProfilePage({ params }: PageProps) {
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             {/* Avatar */}
             <div className="relative w-40 h-40 rounded-3xl bg-white/20 backdrop-blur overflow-hidden flex-shrink-0 flex items-center justify-center border-4 border-white/30">
-              {agent.photo ? (
-                <Image
-                  src={agent.photo}
-                  alt={agent.name}
-                  fill
-                  sizes="160px"
-                  className="object-cover"
-                  priority
+              {member.team_photo ? (
+                <img
+                  src={member.team_photo}
+                  alt={member.full_name || ''}
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="text-white text-6xl font-bold tracking-wider">
-                  {getInitials(agent.name)}
+                  {getInitials(member.full_name || '')}
                 </div>
               )}
             </div>
@@ -150,27 +155,27 @@ export default async function AgentProfilePage({ params }: PageProps) {
             {/* Info */}
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-3xl md:text-5xl font-bold mb-3">
-                {agent.name}
+                {member.full_name}
               </h1>
               <p className="text-xl text-yellow-400 font-semibold mb-6">
-                {agent.title}
+                {member.team_title}
               </p>
 
               {/* Quick stats */}
               <div className="flex flex-wrap justify-center md:justify-start gap-6 mb-6">
-                {agent.experience_years && (
+                {member.team_experience_years && (
                   <div className="flex items-center gap-2">
                     <Award size={20} />
                     <span className="font-semibold">
-                      {agent.experience_years}+ years
+                      {member.team_experience_years}+ years
                     </span>
                   </div>
                 )}
-                {agent.specialties.length > 0 && (
+                {(member.team_specialties || []).length > 0 && (
                   <div className="flex items-center gap-2">
                     <Briefcase size={20} />
                     <span className="font-semibold">
-                      {agent.specialties.length} specialties
+                      {member.team_specialties.length} specialties
                     </span>
                   </div>
                 )}
@@ -178,9 +183,9 @@ export default async function AgentProfilePage({ params }: PageProps) {
 
               {/* Contact buttons */}
               <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                {agent.whatsapp && (
+                {member.team_whatsapp && (
                   <a
-                    href={`https://wa.me/${agent.whatsapp.replace('+', '')}`}
+                    href={`https://wa.me/${member.team_whatsapp.replace('+', '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full transition-all"
@@ -189,18 +194,18 @@ export default async function AgentProfilePage({ params }: PageProps) {
                     WhatsApp
                   </a>
                 )}
-                {agent.phone && (
+                {member.team_phone && (
                   <a
-                    href={`tel:${agent.phone.replace(/\s/g, '')}`}
+                    href={`tel:${member.team_phone.replace(/\s/g, '')}`}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#1e3a8a] hover:bg-gray-100 font-semibold rounded-full transition-all"
                   >
                     <Phone size={18} />
                     Call
                   </a>
                 )}
-                {agent.email && (
+                {member.team_email && (
                   <a
-                    href={`mailto:${agent.email}`}
+                    href={`mailto:${member.team_email}`}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur hover:bg-white/20 text-white font-semibold rounded-full transition-all border border-white/20"
                   >
                     <Mail size={18} />
@@ -219,26 +224,26 @@ export default async function AgentProfilePage({ params }: PageProps) {
           <div className="grid lg:grid-cols-3 gap-12">
             {/* Left: Bio + Specialties */}
             <div className="lg:col-span-2 space-y-8">
-              {/* Bio */}
-              <div className="bg-white rounded-3xl shadow-md p-8 md:p-10">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <Users className="text-[#1e3a8a]" size={26} />
-                  About {agent.name.split(' ')[0]}
-                </h2>
-                <p className="text-gray-700 leading-relaxed whitespace-pre-line text-lg">
-                  {agent.bio}
-                </p>
-              </div>
+              {member.team_bio && (
+                <div className="bg-white rounded-3xl shadow-md p-8 md:p-10">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <Users className="text-[#1e3a8a]" size={26} />
+                    About {firstName}
+                  </h2>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-line text-lg">
+                    {member.team_bio}
+                  </p>
+                </div>
+              )}
 
-              {/* Specialties */}
-              {agent.specialties.length > 0 && (
+              {(member.team_specialties || []).length > 0 && (
                 <div className="bg-white rounded-3xl shadow-md p-8 md:p-10">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                     <Briefcase className="text-[#dc2626]" size={26} />
                     Areas of Expertise
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {agent.specialties.map((spec) => (
+                    {member.team_specialties.map((spec) => (
                       <div
                         key={spec}
                         className="flex items-center gap-3 p-4 bg-red-50 rounded-xl border border-red-100"
@@ -256,15 +261,14 @@ export default async function AgentProfilePage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* Certifications */}
-              {agent.certifications && agent.certifications.length > 0 && (
+              {(member.team_certifications || []).length > 0 && (
                 <div className="bg-white rounded-3xl shadow-md p-8 md:p-10">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                     <Award className="text-green-600" size={26} />
                     Professional Certifications
                   </h2>
                   <ul className="space-y-4">
-                    {agent.certifications.map((cert) => (
+                    {member.team_certifications.map((cert) => (
                       <li
                         key={cert}
                         className="flex items-start gap-3 p-4 bg-green-50 rounded-xl border border-green-100"
@@ -290,14 +294,16 @@ export default async function AgentProfilePage({ params }: PageProps) {
                     Get in Touch
                   </h3>
                   <p className="text-sm text-gray-600 mb-6">
-                    Reach out directly to {agent.name.split(' ')[0]} for
-                    personalized advice.
+                    Reach out directly to {firstName} for personalized advice.
                   </p>
 
                   <div className="space-y-3">
-                    {agent.whatsapp && (
+                    {member.team_whatsapp && (
                       <a
-                        href={`https://wa.me/${agent.whatsapp.replace('+', '')}`}
+                        href={`https://wa.me/${member.team_whatsapp.replace(
+                          '+',
+                          ''
+                        )}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 p-3 rounded-xl hover:bg-green-50 transition group"
@@ -319,9 +325,9 @@ export default async function AgentProfilePage({ params }: PageProps) {
                       </a>
                     )}
 
-                    {agent.phone && (
+                    {member.team_phone && (
                       <a
-                        href={`tel:${agent.phone.replace(/\s/g, '')}`}
+                        href={`tel:${member.team_phone.replace(/\s/g, '')}`}
                         className="flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition group"
                       >
                         <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
@@ -330,15 +336,15 @@ export default async function AgentProfilePage({ params }: PageProps) {
                         <div>
                           <div className="text-xs text-gray-500">Call</div>
                           <div className="font-semibold text-gray-900 group-hover:text-[#dc2626] transition">
-                            {agent.phone}
+                            {member.team_phone}
                           </div>
                         </div>
                       </a>
                     )}
 
-                    {agent.email && (
+                    {member.team_email && (
                       <a
-                        href={`mailto:${agent.email}`}
+                        href={`mailto:${member.team_email}`}
                         className="flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition group"
                       >
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -347,7 +353,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
                         <div className="min-w-0">
                           <div className="text-xs text-gray-500">Email</div>
                           <div className="font-semibold text-gray-900 group-hover:text-[#1e3a8a] transition truncate">
-                            {agent.email}
+                            {member.team_email}
                           </div>
                         </div>
                       </a>
@@ -391,7 +397,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
           </div>
 
           {/* Other team members */}
-          {otherAgents.length > 0 && (
+          {otherMembers.length > 0 && (
             <div className="mt-20">
               <div className="text-center mb-10">
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">
@@ -403,10 +409,10 @@ export default async function AgentProfilePage({ params }: PageProps) {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {otherAgents.map((other) => (
+                {otherMembers.map((other) => (
                   <Link
                     key={other.id}
-                    href={`/team/${other.slug}`}
+                    href={`/team/${other.team_slug}`}
                     className="group bg-white rounded-2xl shadow-md hover:shadow-2xl transition-all overflow-hidden border border-gray-100"
                   >
                     <div className="h-2 w-full bg-gradient-to-r from-[#1e3a8a] to-[#2563eb]" />
@@ -414,15 +420,15 @@ export default async function AgentProfilePage({ params }: PageProps) {
                       <div className="flex items-center gap-4 mb-4">
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1e3a8a] to-[#2563eb] flex items-center justify-center flex-shrink-0">
                           <span className="text-white text-lg font-bold">
-                            {getInitials(other.name)}
+                            {getInitials(other.full_name || '')}
                           </span>
                         </div>
                         <div>
                           <h3 className="font-bold text-gray-900 group-hover:text-[#dc2626] transition">
-                            {other.name}
+                            {other.full_name}
                           </h3>
                           <p className="text-xs text-[#dc2626] font-semibold">
-                            {other.title}
+                            {other.team_title}
                           </p>
                         </div>
                       </div>
@@ -446,7 +452,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
       <section className="bg-gradient-to-r from-[#1e3a8a] to-[#1e40af] text-white py-16">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Ready to Work With {agent.name.split(' ')[0]}?
+            Ready to Work With {firstName}?
           </h2>
           <p className="text-lg text-blue-100 mb-8">
             Get personalized insurance advice tailored to your needs.

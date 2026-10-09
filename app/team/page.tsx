@@ -1,6 +1,5 @@
 // app/team/page.tsx
 import Link from 'next/link';
-import Image from 'next/image';
 import { ArrowRight, User, Award, Briefcase, MessageCircle, Phone } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -13,41 +12,47 @@ export const metadata: Metadata = {
     'Meet the experienced insurance professionals at MIMA Insurance Brokers. Our team of certified brokers is dedicated to protecting what matters most to you.',
 };
 
-interface Agent {
-  id: number;
-  slug: string;
-  name: string;
-  title: string;
-  bio: string;
-  email: string | null;
-  phone: string | null;
-  whatsapp: string | null;
-  photo: string | null;
-  specialties: string[];
-  experience_years: number | null;
+interface TeamMember {
+  id: string;
+  full_name: string | null;
+  team_slug: string;
+  team_title: string | null;
+  team_bio: string | null;
+  team_email: string | null;
+  team_phone: string | null;
+  team_whatsapp: string | null;
+  team_photo: string | null;
+  team_specialties: string[];
+  team_experience_years: number | null;
+  team_display_order: number;
 }
 
-async function getAgents(): Promise<Agent[]> {
+async function getTeamMembers(): Promise<TeamMember[]> {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   const { data, error } = await supabase
-    .from('agents')
-    .select('id, slug, name, title, bio, email, phone, whatsapp, photo, specialties, experience_years')
-    .eq('active', true)
-    .order('display_order', { ascending: true });
+    .from('user_profiles')
+    .select(
+      'id, full_name, team_slug, team_title, team_bio, team_email, team_phone, team_whatsapp, team_photo, team_specialties, team_experience_years, team_display_order'
+    )
+    .eq('is_team_member', true)
+    .eq('team_active', true)
+    .order('team_display_order', { ascending: true });
 
   if (error) {
-    console.error('Error fetching agents:', error);
+    console.error('Error fetching team members:', error);
     return [];
   }
 
-  return data || [];
+  // Filter out any rows where team_slug is null (safety)
+  return (data || []).filter(
+    (m): m is TeamMember => !!m.team_slug && !!m.full_name
+  );
 }
 
-// Generate initials avatar
 function getInitials(name: string): string {
   return name
     .split(' ')
@@ -58,7 +63,7 @@ function getInitials(name: string): string {
 }
 
 export default async function TeamPage() {
-  const agents = await getAgents();
+  const members = await getTeamMembers();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -83,7 +88,7 @@ export default async function TeamPage() {
       {/* Team Grid */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-6">
-          {agents.length === 0 ? (
+          {members.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-gray-500 text-lg">
                 Team information coming soon.
@@ -91,23 +96,30 @@ export default async function TeamPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {agents.map((agent) => (
+              {members.map((member) => (
                 <div
-                  key={agent.id}
+                  key={member.id}
                   className="group bg-white rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col"
                 >
-                                    {/* Photo / Avatar */}
+                  {/* Photo / Avatar */}
                   <div className="relative h-64 bg-gradient-to-br from-[#1e3a8a] to-[#2563eb] overflow-hidden flex items-center justify-center">
-                    {/* Use initials avatar — replace with real Image when photos are provided */}
-                    <div className="text-white text-7xl font-bold tracking-wider">
-                      {getInitials(agent.name)}
-                    </div>
+                    {member.team_photo ? (
+                      <img
+                        src={member.team_photo}
+                        alt={member.full_name || ''}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-white text-7xl font-bold tracking-wider">
+                        {getInitials(member.full_name || '')}
+                      </div>
+                    )}
                     {/* Experience badge */}
-                    {agent.experience_years && (
+                    {member.team_experience_years && (
                       <div className="absolute top-4 right-4">
                         <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/95 backdrop-blur text-xs font-semibold text-[#1e3a8a]">
                           <Award size={12} />
-                          {agent.experience_years}+ yrs
+                          {member.team_experience_years}+ yrs
                         </div>
                       </div>
                     )}
@@ -116,15 +128,15 @@ export default async function TeamPage() {
                   {/* Content */}
                   <div className="p-6 flex-1 flex flex-col">
                     <h3 className="text-lg font-bold text-gray-900 mb-1">
-                      {agent.name}
+                      {member.full_name}
                     </h3>
                     <p className="text-sm text-[#dc2626] font-semibold mb-3">
-                      {agent.title}
+                      {member.team_title}
                     </p>
 
                     {/* Specialties */}
                     <div className="flex flex-wrap gap-1.5 mb-4">
-                      {agent.specialties.slice(0, 3).map((spec) => (
+                      {(member.team_specialties || []).slice(0, 3).map((spec) => (
                         <span
                           key={spec}
                           className="inline-block px-2 py-0.5 rounded-full bg-blue-50 text-[#1e3a8a] text-[10px] font-semibold"
@@ -136,13 +148,13 @@ export default async function TeamPage() {
 
                     {/* Bio excerpt */}
                     <p className="text-xs text-gray-600 leading-relaxed mb-4 line-clamp-3">
-                      {agent.bio}
+                      {member.team_bio}
                     </p>
 
                     {/* Quick actions */}
                     <div className="mt-auto space-y-2">
                       <Link
-                        href={`/team/${agent.slug}`}
+                        href={`/team/${member.team_slug}`}
                         className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#1e3a8a] hover:bg-[#1e40af] text-white text-sm font-semibold rounded-full transition"
                       >
                         View Profile
@@ -150,9 +162,12 @@ export default async function TeamPage() {
                       </Link>
 
                       <div className="flex gap-2">
-                        {agent.whatsapp && (
+                        {member.team_whatsapp && (
                           <a
-                            href={`https://wa.me/${agent.whatsapp.replace('+', '')}`}
+                            href={`https://wa.me/${member.team_whatsapp.replace(
+                              '+',
+                              ''
+                            )}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 border-2 border-green-500 text-green-600 hover:bg-green-500 hover:text-white text-xs font-semibold rounded-full transition"
@@ -161,9 +176,9 @@ export default async function TeamPage() {
                             WhatsApp
                           </a>
                         )}
-                        {agent.phone && (
+                        {member.team_phone && (
                           <a
-                            href={`tel:${agent.phone.replace(/\s/g, '')}`}
+                            href={`tel:${member.team_phone.replace(/\s/g, '')}`}
                             className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 border-2 border-[#dc2626] text-[#dc2626] hover:bg-[#dc2626] hover:text-white text-xs font-semibold rounded-full transition"
                           >
                             <Phone size={12} />
