@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Plus,
   Trash2,
@@ -13,38 +14,45 @@ import {
   Eye,
   EyeOff,
   UserCog,
+  Mail,
+  Info,
 } from 'lucide-react';
 
-interface Agent {
-  id: number;
-  slug: string;
-  name: string;
-  title: string;
-  bio: string;
-  email: string | null;
+interface TeamMember {
+  id: string;
+  email: string;
+  full_name: string | null;
   phone: string | null;
-  whatsapp: string | null;
-  photo: string | null;
-  specialties: string[];
-  experience_years: number | null;
-  certifications: string[] | null;
-  display_order: number;
-  active: boolean;
+  is_admin: boolean;
+  is_super_admin: boolean;
+  is_team_member: boolean;
+  team_slug: string | null;
+  team_title: string | null;
+  team_bio: string | null;
+  team_email: string | null;
+  team_phone: string | null;
+  team_whatsapp: string | null;
+  team_photo: string | null;
+  team_specialties: string[];
+  team_experience_years: number | null;
+  team_certifications: string[];
+  team_display_order: number;
+  team_active: boolean;
   created_at: string;
 }
 
 const EMPTY_FORM = {
   name: '',
+  email: '',
   slug: '',
   title: '',
   bio: '',
-  email: '',
   phone: '',
   whatsapp: '',
   photo: '',
-  specialties: '', // comma-separated
+  specialties: '',
   experience_years: '',
-  certifications: '', // comma-separated
+  certifications: '',
   display_order: 0,
   active: true,
 };
@@ -68,21 +76,31 @@ function getInitials(name: string): string {
 }
 
 export default function AdminTeamPage() {
-  const [agents, setAgents] = useState<Agent[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [message, setMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadAgents = async () => {
+  const loadMembers = async () => {
     try {
       const res = await fetch('/api/admin/team');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setAgents(data.agents || []);
+      setMembers(data.agents || []);
+
+      const meRes = await fetch('/api/admin/admins');
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        setIsSuperAdmin(meData.isSuperAdmin === true);
+      }
     } catch (error) {
       console.error('Load error:', error);
       setMessage({ type: 'error', text: 'Failed to load team' });
@@ -92,7 +110,7 @@ export default function AdminTeamPage() {
   };
 
   useEffect(() => {
-    loadAgents();
+    loadMembers();
   }, []);
 
   const handleChange = (
@@ -119,23 +137,23 @@ export default function AdminTeamPage() {
     setShowForm(false);
   };
 
-  const handleEdit = (agent: Agent) => {
+  const handleEdit = (member: TeamMember) => {
     setFormData({
-      name: agent.name,
-      slug: agent.slug,
-      title: agent.title,
-      bio: agent.bio,
-      email: agent.email || '',
-      phone: agent.phone || '',
-      whatsapp: agent.whatsapp || '',
-      photo: agent.photo || '',
-      specialties: (agent.specialties || []).join(', '),
-      experience_years: agent.experience_years?.toString() || '',
-      certifications: (agent.certifications || []).join(', '),
-      display_order: agent.display_order,
-      active: agent.active,
+      name: member.full_name || '',
+      email: member.email,
+      slug: member.team_slug || '',
+      title: member.team_title || '',
+      bio: member.team_bio || '',
+      phone: member.team_phone || member.phone || '',
+      whatsapp: member.team_whatsapp || '',
+      photo: member.team_photo || '',
+      specialties: (member.team_specialties || []).join(', '),
+      experience_years: member.team_experience_years?.toString() || '',
+      certifications: (member.team_certifications || []).join(', '),
+      display_order: member.team_display_order || 0,
+      active: member.team_active !== false,
     });
-    setEditingId(agent.id);
+    setEditingId(member.id);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -148,11 +166,12 @@ export default function AdminTeamPage() {
     try {
       const payload = {
         name: formData.name,
+        email: formData.email,
         slug: formData.slug,
         title: formData.title,
         bio: formData.bio,
-        email: formData.email || null,
         phone: formData.phone || null,
+        email_public: formData.email,
         whatsapp: formData.whatsapp || null,
         photo: formData.photo || null,
         specialties: formData.specialties
@@ -170,9 +189,7 @@ export default function AdminTeamPage() {
         active: formData.active,
       };
 
-      const url = editingId
-        ? `/api/admin/team/${editingId}`
-        : '/api/admin/team';
+      const url = editingId ? `/api/admin/team/${editingId}` : '/api/admin/team';
       const method = editingId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -182,14 +199,17 @@ export default function AdminTeamPage() {
       });
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || 'Failed to save agent');
+      if (!res.ok) throw new Error(data.error || 'Failed to save team member');
 
-      setMessage({
-        type: 'success',
-        text: editingId ? 'Agent updated successfully!' : 'Agent added successfully!',
-      });
+      const successMsg = editingId
+        ? 'Team member updated successfully!'
+        : data.email_sent
+          ? 'Team member added! Password reset email sent.'
+          : 'Team member added! (Email may need to be re-sent manually)';
+
+      setMessage({ type: 'success', text: successMsg });
       resetForm();
-      loadAgents();
+      loadMembers();
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : 'Failed to save';
       setMessage({ type: 'error', text: errMsg });
@@ -198,17 +218,22 @@ export default function AdminTeamPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this agent? This cannot be undone.')) return;
+  const handleDelete = async (id: string, name: string) => {
+    if (
+      !confirm(
+        `Remove ${name} from the team? Their account will be preserved but they will lose team status.`
+      )
+    )
+      return;
 
     setDeletingId(id);
     try {
       const res = await fetch(`/api/admin/team/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
-      setMessage({ type: 'success', text: 'Agent deleted' });
-      loadAgents();
+      setMessage({ type: 'success', text: 'Team member removed' });
+      loadMembers();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to delete' });
+      setMessage({ type: 'error', text: 'Failed to remove' });
     } finally {
       setDeletingId(null);
     }
@@ -220,24 +245,39 @@ export default function AdminTeamPage() {
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Team Management</h1>
-          <p className="text-gray-600">Manage your team of insurance brokers</p>
+          <p className="text-gray-600">
+            Manage MIMA team members. Team members are admins with full access.
+          </p>
         </div>
-        <button
-          onClick={() => {
-            if (showForm) {
-              resetForm();
-            } else {
-              setFormData(EMPTY_FORM);
-              setEditingId(null);
-              setShowForm(true);
-            }
-          }}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold rounded-full transition-all shadow-lg"
-        >
-          {showForm ? <X size={18} /> : <Plus size={18} />}
-          {showForm ? 'Cancel' : 'Add New Agent'}
-        </button>
+        {isSuperAdmin && (
+          <button
+            onClick={() => {
+              if (showForm) {
+                resetForm();
+              } else {
+                setFormData(EMPTY_FORM);
+                setEditingId(null);
+                setShowForm(true);
+              }
+            }}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#b91c1c] text-white font-semibold rounded-full transition-all shadow-lg"
+          >
+            {showForm ? <X size={18} /> : <Plus size={18} />}
+            {showForm ? 'Cancel' : 'Add Team Member'}
+          </button>
+        )}
       </div>
+
+      {/* Read-only banner for non-super-admins */}
+      {!isSuperAdmin && !loading && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3 text-sm text-blue-900">
+          <Info size={18} className="flex-shrink-0 mt-0.5" />
+          <div>
+            <strong>Read-only view.</strong> Only super admins can add, edit, or
+            remove team members. Contact a super admin to make changes.
+          </div>
+        </div>
+      )}
 
       {/* Message */}
       {message && (
@@ -248,7 +288,11 @@ export default function AdminTeamPage() {
               : 'bg-red-50 border border-red-200 text-red-800'
           }`}
         >
-          {message.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {message.type === 'success' ? (
+            <CheckCircle size={16} />
+          ) : (
+            <AlertCircle size={16} />
+          )}
           {message.text}
         </div>
       )}
@@ -256,9 +300,20 @@ export default function AdminTeamPage() {
       {/* Form */}
       {showForm && (
         <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 mb-8 border-t-4 border-[#dc2626]">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            {editingId ? 'Edit Agent' : 'New Team Member'}
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            {editingId ? 'Edit Team Member' : 'Add New Team Member'}
           </h2>
+
+          {!editingId && (
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-start gap-2">
+              <Info size={14} className="flex-shrink-0 mt-0.5" />
+              <span>
+                A user account will be created automatically. The team member will
+                receive a password reset email to set up their login.
+              </span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid md:grid-cols-2 gap-5">
               {/* Name */}
@@ -275,6 +330,28 @@ export default function AdminTeamPage() {
                   placeholder="e.g. Otuko Philemon"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#dc2626] focus:ring-2 focus:ring-red-100 outline-none transition"
                 />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <Mail size={14} /> Login Email *
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  disabled={!!editingId}
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="name@mimainsure.com"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#dc2626] focus:ring-2 focus:ring-red-100 outline-none transition disabled:bg-gray-50 disabled:text-gray-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {editingId
+                    ? 'Login email cannot be changed.'
+                    : 'Password reset will be sent here'}
+                </p>
               </div>
 
               {/* Title */}
@@ -294,7 +371,7 @@ export default function AdminTeamPage() {
               </div>
 
               {/* Slug */}
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Slug (URL identifier) *
                 </label>
@@ -309,21 +386,7 @@ export default function AdminTeamPage() {
                 />
               </div>
 
-              {/* Email + Phone */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="name@mimainsure.com"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#dc2626] focus:ring-2 focus:ring-red-100 outline-none transition"
-                />
-              </div>
-
+              {/* Phone */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Phone
@@ -353,7 +416,7 @@ export default function AdminTeamPage() {
                 />
               </div>
 
-              {/* Experience Years */}
+              {/* Experience */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Years of Experience
@@ -369,7 +432,23 @@ export default function AdminTeamPage() {
                 />
               </div>
 
-              {/* Photo URL */}
+              {/* Display Order */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Display Order
+                </label>
+                <input
+                  type="number"
+                  name="display_order"
+                  min="0"
+                  value={formData.display_order}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#dc2626] focus:ring-2 focus:ring-red-100 outline-none transition"
+                />
+                <p className="text-xs text-gray-500 mt-1">Lower = appears first</p>
+              </div>
+
+              {/* Photo */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Photo URL (optional)
@@ -382,9 +461,6 @@ export default function AdminTeamPage() {
                   placeholder="/images/team/agent.jpg"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#dc2626] focus:ring-2 focus:ring-red-100 outline-none transition font-mono text-sm"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Leave blank to use initials avatar
-                </p>
               </div>
 
               {/* Specialties */}
@@ -434,38 +510,18 @@ export default function AdminTeamPage() {
                 />
               </div>
 
-              {/* Display Order */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Display Order
-                </label>
-                <input
-                  type="number"
-                  name="display_order"
-                  min="0"
-                  value={formData.display_order}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#dc2626] focus:ring-2 focus:ring-red-100 outline-none transition"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Lower numbers appear first
-                </p>
-              </div>
-
               {/* Active */}
-              <div className="flex items-end">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="active"
-                    checked={formData.active}
-                    onChange={handleChange}
-                    className="w-5 h-5 rounded border-gray-300 text-[#dc2626] focus:ring-[#dc2626]"
-                  />
-                  <span className="text-sm font-semibold text-gray-700">
-                    Show on website
-                  </span>
-                </label>
+              <div className="md:col-span-2 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="active"
+                  checked={formData.active}
+                  onChange={handleChange}
+                  className="w-5 h-5 rounded border-gray-300 text-[#dc2626] focus:ring-[#dc2626]"
+                />
+                <span className="text-sm font-semibold text-gray-700">
+                  Show on public website
+                </span>
               </div>
             </div>
 
@@ -483,7 +539,7 @@ export default function AdminTeamPage() {
                 ) : (
                   <>
                     <CheckCircle size={18} />
-                    {editingId ? 'Update Agent' : 'Add Agent'}
+                    {editingId ? 'Update Team Member' : 'Add Team Member'}
                   </>
                 )}
               </button>
@@ -499,12 +555,12 @@ export default function AdminTeamPage() {
         </div>
       )}
 
-      {/* Agents list */}
+      {/* Members list */}
       <div className="bg-white rounded-2xl shadow-md overflow-hidden">
         <div className="p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <UserCog className="text-[#1e3a8a]" size={22} />
-            All Team Members ({agents.length})
+            All Team Members ({members.length})
           </h2>
         </div>
 
@@ -513,12 +569,14 @@ export default function AdminTeamPage() {
             <Loader2 className="animate-spin mx-auto text-[#dc2626] mb-3" size={32} />
             <p className="text-gray-500">Loading team...</p>
           </div>
-        ) : agents.length === 0 ? (
+        ) : members.length === 0 ? (
           <div className="p-12 text-center">
             <UserCog className="mx-auto text-gray-300 mb-4" size={56} />
-            <h3 className="text-lg font-bold text-gray-700 mb-2">No team members</h3>
+            <h3 className="text-lg font-bold text-gray-700 mb-2">
+              No team members yet
+            </h3>
             <p className="text-gray-500 text-sm">
-              Click &quot;Add New Agent&quot; to start building your team
+              Click &quot;Add Team Member&quot; to start building your team
             </p>
           </div>
         ) : (
@@ -530,10 +588,10 @@ export default function AdminTeamPage() {
                     Team Member
                   </th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
-                    Specialties
+                    Contact
                   </th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
-                    Experience
+                    Specialties
                   </th>
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase">
                     Status
@@ -544,79 +602,106 @@ export default function AdminTeamPage() {
                 </tr>
               </thead>
               <tbody>
-                {agents.map((agent) => (
-                  <tr key={agent.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                {members.map((member) => (
+                  <tr
+                    key={member.id}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#1e3a8a] to-[#2563eb] flex items-center justify-center flex-shrink-0">
                           <span className="text-white text-xs font-bold">
-                            {getInitials(agent.name)}
+                            {getInitials(member.full_name || member.email)}
                           </span>
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {agent.name}
+                            {member.full_name || 'Unnamed'}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {agent.title}
+                            {member.team_title || 'No title'}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
+                      <div className="text-xs text-gray-600">{member.email}</div>
+                      {member.team_phone && (
+                        <div className="text-xs text-gray-400">
+                          {member.team_phone}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1 max-w-xs">
-                        {agent.specialties.slice(0, 2).map((spec) => (
-                          <span
-                            key={spec}
-                            className="inline-block px-2 py-0.5 rounded-full bg-blue-50 text-[#1e3a8a] text-[10px] font-semibold"
-                          >
-                            {spec}
-                          </span>
-                        ))}
-                        {agent.specialties.length > 2 && (
+                        {(member.team_specialties || [])
+                          .slice(0, 2)
+                          .map((spec) => (
+                            <span
+                              key={spec}
+                              className="inline-block px-2 py-0.5 rounded-full bg-blue-50 text-[#1e3a8a] text-[10px] font-semibold"
+                            >
+                              {spec}
+                            </span>
+                          ))}
+                        {(member.team_specialties || []).length > 2 && (
                           <span className="inline-block px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-semibold">
-                            +{agent.specialties.length - 2}
+                            +{(member.team_specialties || []).length - 2}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {agent.experience_years ? `${agent.experience_years} yrs` : '—'}
-                    </td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                          agent.active
+                          member.team_active !== false
                             ? 'bg-green-50 text-green-700'
                             : 'bg-gray-50 text-gray-700'
                         }`}
                       >
-                        {agent.active ? <Eye size={12} /> : <EyeOff size={12} />}
-                        {agent.active ? 'Active' : 'Hidden'}
+                        {member.team_active !== false ? (
+                          <Eye size={12} />
+                        ) : (
+                          <EyeOff size={12} />
+                        )}
+                        {member.team_active !== false ? 'Active' : 'Hidden'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(agent)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[#1e3a8a] hover:bg-blue-50 rounded-lg transition"
-                        >
-                          <Edit size={14} />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(agent.id)}
-                          disabled={deletingId === agent.id}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[#dc2626] hover:bg-red-50 rounded-lg transition disabled:opacity-50"
-                        >
-                          {deletingId === agent.id ? (
-                            <Loader2 className="animate-spin" size={14} />
-                          ) : (
-                            <Trash2 size={14} />
+                      {!isSuperAdmin ? (
+                        <span className="text-xs text-gray-400 italic">
+                          Read-only
+                        </span>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(member)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[#1e3a8a] hover:bg-blue-50 rounded-lg transition"
+                          >
+                            <Edit size={14} />
+                            Edit
+                          </button>
+                          {!member.is_super_admin && (
+                            <button
+                              onClick={() =>
+                                handleDelete(
+                                  member.id,
+                                  member.full_name || member.email
+                                )
+                              }
+                              disabled={deletingId === member.id}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[#dc2626] hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                            >
+                              {deletingId === member.id ? (
+                                <Loader2 className="animate-spin" size={14} />
+                              ) : (
+                                <Trash2 size={14} />
+                              )}
+                              Remove
+                            </button>
                           )}
-                          Delete
-                        </button>
-                      </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -624,6 +709,16 @@ export default function AdminTeamPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Link to Admin Management */}
+      <div className="mt-6 text-center">
+        <Link
+          href="/admin/admins"
+          className="text-sm text-[#1e3a8a] hover:text-[#1e40af] font-semibold inline-flex items-center gap-1"
+        >
+          Manage admin access →
+        </Link>
       </div>
     </div>
   );

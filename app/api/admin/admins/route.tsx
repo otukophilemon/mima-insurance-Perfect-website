@@ -9,7 +9,7 @@ const adminSupabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 );
 
-async function verifyAdmin() {
+async function getCurrentAdmin() {
   try {
     const supabase = await createServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -17,47 +17,78 @@ async function verifyAdmin() {
 
     const { data: profile } = await adminSupabase
       .from('user_profiles')
-      .select('is_admin')
+      .select('is_admin, is_super_admin')
       .eq('id', user.id)
       .single();
 
-    return profile?.is_admin ? user : null;
+    if (!profile?.is_admin) return null;
+
+    return {
+      user,
+      isSuperAdmin: profile.is_super_admin === true,
+    };
   } catch (error) {
-    console.error('verifyAdmin error:', error);
+    console.error('getCurrentAdmin error:', error);
     return null;
   }
 }
 
+/**
+ * GET /api/admin/admins
+ * Returns all team members with their admin/super-admin status.
+ * Only accessible to admins. Super-admin flag returned so UI can gate actions.
+ */
 export async function GET() {
   try {
-    const admin = await verifyAdmin();
-    if (!admin) {
+    const current = await getCurrentAdmin();
+    if (!current) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { data: users, error } = await adminSupabase
+    const { data: teamMembers, error } = await adminSupabase
       .from('user_profiles')
-      .select('id, email, full_name, phone, is_admin, created_at')
-      .order('is_admin', { ascending: false })
-      .order('created_at', { ascending: false });
+      .select(
+        'id, email, full_name, phone, is_admin, is_super_admin, is_team_member, team_slug, team_title, team_photo, team_display_order, created_at'
+      )
+      .eq('is_team_member', true)
+      .order('is_super_admin', { ascending: false })
+      .order('team_display_order', { ascending: true })
+      .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Users fetch error:', error);
+      console.error('Team members fetch error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ users: users || [] });
+    return NextResponse.json({
+      admins: teamMembers || [],
+      isSuperAdmin: current.isSuperAdmin,
+    });
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
+/**
+ * PUT /api/admin/admins
+ * Grant or revoke admin status for a user.
+ * Only super admins can perform this action.
+ * Body: { userId: string, isAdmin: boolean }
+ */
 export async function PUT(request: Request) {
   try {
-    const admin = await verifyAdmin();
-    if (!admin) {
+    const current = await getCurrentAdmin();
+    if (!current) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Only super admin can manage admin status
+    if (!current.isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Only a super admin can grant or revoke admin access' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -69,10 +100,28 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Prevent admin from demoting themselves
-    if (body.userId === admin.id && body.isAdmin === false) {
+    // Prevent super admin from revoking their own super admin via this endpoint
+    if (body.userId === current.user.id && body.isAdmin === false) {
       return NextResponse.json(
         { error: 'You cannot remove your own admin access' },
+        { status: 400 }
+      );
+    }
+
+    const { data: targetUser, error: targetError } = await adminSupabase
+      .from('user_profiles')
+      .select('is_super_admin, email')
+      .eq('id', body.userId)
+      .single();
+
+    if (targetError || !targetUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Prevent modifying other super admins
+    if (targetUser.is_super_admin && body.userId !== current.user.id) {
+      return NextResponse.json(
+        { error: 'Super admin accounts cannot be modified by other admins' },
         { status: 400 }
       );
     }
@@ -81,7 +130,7 @@ export async function PUT(request: Request) {
       .from('user_profiles')
       .update({ is_admin: body.isAdmin })
       .eq('id', body.userId)
-      .select()
+      .select('id, email, full_name, is_admin, is_super_admin, is_team_member')
       .single();
 
     if (error) {

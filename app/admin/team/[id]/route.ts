@@ -28,25 +28,10 @@ async function verifyAdmin() {
   }
 }
 
-async function verifySuperAdmin() {
-  try {
-    const supabase = await createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return null;
-
-    const { data: profile } = await adminSupabase
-      .from('user_profiles')
-      .select('is_admin, is_super_admin')
-      .eq('id', user.id)
-      .single();
-
-    return profile?.is_admin && profile?.is_super_admin ? user : null;
-  } catch (error) {
-    console.error('verifySuperAdmin error:', error);
-    return null;
-  }
-}
-
+/**
+ * GET /api/admin/team/[id]
+ * Returns a single team member.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -79,19 +64,17 @@ export async function GET(
 
 /**
  * PUT /api/admin/team/[id]
- * Update team member details. SUPER ADMIN ONLY.
+ * Update team member details.
+ * Only updates team_* fields (never auth/email).
  */
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await verifySuperAdmin();
+    const admin = await verifyAdmin();
     if (!admin) {
-      return NextResponse.json(
-        { error: 'Only super admins can edit team members' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -132,8 +115,9 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 📝 Audit log
     await logAdminAction({
-      action: 'create_policy' as any,
+      action: 'create_policy' as any, // TODO: add 'update_team_member' action type
       entity_type: 'policy' as any,
       entity_id: id,
       details: {
@@ -151,25 +135,27 @@ export async function PUT(
 
 /**
  * DELETE /api/admin/team/[id]
- * Remove a team member. SUPER ADMIN ONLY.
+ * Removes a team member.
+ * - Deletes user_profiles row (but keeps auth account for audit trail)
+ * - OR full delete including auth account if ?hard=true
+ *
+ * Default: soft delete (unmark team member, keep auth + profile)
  */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await verifySuperAdmin();
+    const admin = await verifyAdmin();
     if (!admin) {
-      return NextResponse.json(
-        { error: 'Only super admins can remove team members' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const { id } = await params;
     const url = new URL(request.url);
     const hardDelete = url.searchParams.get('hard') === 'true';
 
+    // Prevent super admin from deleting themselves
     const { data: target } = await adminSupabase
       .from('user_profiles')
       .select('is_super_admin, email')
@@ -184,6 +170,7 @@ export async function DELETE(
     }
 
     if (hardDelete) {
+      // Full delete: auth account + user_profiles row
       const { error: authError } = await adminSupabase.auth.admin.deleteUser(id);
       if (authError) {
         console.error('Auth delete error:', authError);
@@ -198,6 +185,7 @@ export async function DELETE(
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
     } else {
+      // Soft delete: just unmark as team member, keep everything else
       const { error } = await adminSupabase
         .from('user_profiles')
         .update({
@@ -212,6 +200,7 @@ export async function DELETE(
       }
     }
 
+    // 📝 Audit log
     await logAdminAction({
       action: 'demote_admin',
       entity_type: 'admin',
