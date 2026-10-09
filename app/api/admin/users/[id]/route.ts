@@ -40,15 +40,16 @@ export async function GET(
 
     const { id } = await params;
 
-    // Fetch the user profile
+    // Fetch the user profile (exclude team members — this page is for clients only)
     const { data: profile, error: profileError } = await adminSupabase
       .from('user_profiles')
       .select('*')
       .eq('id', id)
+      .neq('is_team_member', true)
       .single();
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
     // Fetch their policies

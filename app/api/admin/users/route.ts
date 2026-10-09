@@ -35,14 +35,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { data: profiles, error: profilesError } = await adminSupabase
+    // Fetch only non-team-members (clients)
+    const { data: users, error } = await adminSupabase
       .from('user_profiles')
-      .select('id, email, full_name, phone, is_admin, created_at')
+      .select('*')
+      .or('is_team_member.is.null,is_team_member.eq.false')
       .order('created_at', { ascending: false });
 
-    if (profilesError) {
-      console.error('Profiles fetch error:', profilesError);
-      return NextResponse.json({ error: profilesError.message }, { status: 500 });
+    if (error) {
+      console.error('Profiles fetch error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     const { data: policies } = await adminSupabase
@@ -57,7 +59,7 @@ export async function GET() {
       policyCounts.set(policy.user_id, existing);
     });
 
-    const usersWithCounts = (profiles || []).map((profile) => ({
+    const usersWithCounts = (users || []).map((profile) => ({
       ...profile,
       policy_count: policyCounts.get(profile.id)?.total || 0,
       active_policy_count: policyCounts.get(profile.id)?.active || 0,
